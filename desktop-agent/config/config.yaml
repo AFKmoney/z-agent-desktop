@@ -1,0 +1,201 @@
+# ============================================================
+# Z.AI Desktop Agent - Configuration
+# ============================================================
+# Copy this file to config.yaml and edit values.
+# Or override any value with environment variables (ZDA_ prefix).
+# ============================================================
+
+agent:
+  name: "ZDA-Agent"
+  version: "1.0.0"
+  language: "fr"                     # fr | en | zh
+  # When true, agent can execute destructive actions without confirmation
+  full_autonomy: true
+  # Loop interval in seconds when idle
+  idle_interval: 30
+  # Max consecutive actions per task (safety limit)
+  max_actions_per_task: 50
+
+# ============================================================
+# Z.AI Models Configuration (Multi-model router)
+# ============================================================
+zai:
+  # Get your API key at https://z.ai/
+  api_key: "${ZAI_API_KEY}"
+  base_url: "https://api.z.ai/api/paas/v4"
+  
+  models:
+    # Primary planner - reasoning and decomposition
+    planner: "glm-4.6"
+    # Vision model - screen understanding
+    vision: "glm-4v"
+    # Fast executor - simple actions
+    executor: "glm-4.5"
+    # Next-gen models (uncomment when available)
+    # planner: "glm-5.1"
+    # executor: "glm-5.2"
+  
+  # Temperature per role
+  temperature:
+    planner: 0.3
+    vision: 0.1
+    executor: 0.2
+  
+  max_tokens: 4096
+
+# ============================================================
+# Telegram Configuration
+# ============================================================
+telegram:
+  # Get token from @BotFather
+  token: "${TELEGRAM_BOT_TOKEN}"
+  # Your Telegram user ID (integer) - the agent will only respond to this user
+  # Find it via @userinfobot
+  allowed_user_ids:
+    - 0
+  # Enable language-natural commands (true) or slash only (false)
+  natural_language: true
+
+# ============================================================
+# Screen Control
+# ============================================================
+screen:
+  # Screenshot interval for VLM perception (seconds)
+  perception_interval: 5
+  # Screenshot scale (1.0 = full resolution, 0.5 = half for faster VLM)
+  scale: 0.75
+  # Confidence threshold for VLM-detected click targets (0-1)
+  click_confidence: 0.7
+  # Default action delay (seconds) - safety between actions
+  action_delay: 0.5
+  # Save screenshots for audit
+  save_screenshots: true
+
+# ============================================================
+# File Manager
+# ============================================================
+files:
+  # Folders the agent can manage
+  watch_folders:
+    - "${HOME}/Desktop"
+    - "${HOME}/Downloads"
+    - "${HOME}/Documents"
+  # Organization rules
+  auto_organize:
+    enabled: false
+    # Patterns: {category: [extensions]}
+    rules:
+      Images: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic"]
+      Documents: [".pdf", ".docx", ".doc", ".xlsx", ".pptx", ".txt"]
+      Archives: [".zip", ".tar", ".gz", ".rar", ".7z"]
+      Code: [".py", ".js", ".ts", ".html", ".css", ".json", ".md"]
+      Videos: [".mp4", ".mov", ".avi", ".mkv"]
+      Audio: [".mp3", ".wav", ".flac", ".m4a"]
+  # Safe delete (move to trash instead of permanent delete)
+  safe_delete: true
+
+# ============================================================
+# Email Configuration (IMAP receive + SMTP send)
+# ============================================================
+email:
+  # IMAP (incoming)
+  imap_server: "imap.gmail.com"
+  imap_port: 993
+  imap_ssl: true
+  username: "${EMAIL_USER}"
+  password: "${EMAIL_APP_PASSWORD}"   # Use app password, NOT your real password
+  
+  # SMTP (outgoing)
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  smtp_tls: true
+  
+  # Auto-processing rules
+  auto_rules:
+    enabled: false
+    mark_urgent_from: []              # List of sender emails to flag as urgent
+    auto_archive_read_older_than_days: 30
+
+# ============================================================
+# Calendar (ICS files)
+# ============================================================
+calendar:
+  # Path to .ics files (Google Calendar / Outlook export)
+  ics_files: []
+  # Local calendar file managed by the agent
+  local_calendar: "${HOME}/.zda-agent/calendar.ics"
+  # Check interval (seconds)
+  check_interval: 300
+  # Notify X minutes before event
+  notify_before_minutes: 15
+
+# ============================================================
+# Browser Control (Playwright)
+# ============================================================
+browser:
+  # Browser: chromium | firefox | webkit
+  browser: "chromium"
+  headless: false                     # Visible browser for debugging
+  # User data dir to persist sessions (login cookies)
+  user_data_dir: "${HOME}/.zda-agent/browser-profile"
+  # Default timeout (ms)
+  timeout: 30000
+
+# ============================================================
+# System Control
+# ============================================================
+system:
+  # Allowed apps to launch (whitelist)
+  allowed_apps:
+    - "notepad"
+    - "calc"
+    - "explorer"
+    - "code"
+    - "chrome"
+    - "firefox"
+    - "safari"
+    - "terminal"
+  # Screenshot on error
+  screenshot_on_error: true
+
+# ============================================================
+# Dashboard / Web API
+# ============================================================
+dashboard:
+  # FastAPI server
+  host: "127.0.0.1"
+  port: 8765
+  # CORS
+  cors_origins: ["*"]
+  # WebSocket for real-time logs
+  websocket_enabled: true
+
+# ============================================================
+# Logging
+# ============================================================
+logging:
+  level: "INFO"                       # DEBUG | INFO | WARNING | ERROR
+  file: "${HOME}/.zda-agent/logs/agent.log"
+  max_size_mb: 50
+  backup_count: 5
+  # Also send logs to dashboard
+  broadcast_to_dashboard: true
+
+# ============================================================
+# Security
+# ============================================================
+security:
+  # Even in full_autonomy, NEVER touch these paths
+  protected_paths:
+    - "${HOME}/.ssh"
+    - "${HOME}/.aws"
+    - "${HOME}/.config/1password"
+    - "/etc/passwd"
+    - "/etc/shadow"
+  # Max file size the agent can read/write (MB)
+  max_file_size_mb: 100
+  # Block these actions even in full_autonomy
+  blocked_actions:
+    - "format_disk"
+    - "rm_rf_root"
+    - "modify_system_files"

@@ -1,0 +1,50 @@
+# === Z.AI Desktop Agent - Dependencies ===
+
+# --- AI / LLM ---
+openai>=1.30.0                  # OpenAI-compatible client for z.ai API
+httpx>=0.27.0                   # HTTP client
+python-dotenv>=1.0.0            # .env loading
+
+# --- Telegram ---
+python-telegram-bot>=21.0       # Telegram bot framework
+
+# --- Screen Control ---
+pyautogui>=0.9.54               # Cursor, keyboard, screenshots
+pillow>=10.0.0                  # Image processing
+mss>=9.0.1                      # Fast screen capture
+
+# --- File Management ---
+pathlib2>=2.3                   # Path utilities (legacy compat)
+send2trash>=1.8                 # Safe delete to trash
+
+# --- Email ---
+imapclient>=2.3                 # IMAP receiving
+email-validator>=2.1            # Email validation
+
+# --- Calendar ---
+icalendar>=5.0                  # ICS parsing
+recurring-ical-events>=2.0      # Recurring events
+
+# --- Browser ---
+playwright>=1.40                # Browser automation
+
+# --- System ---
+psutil>=5.9                     # Process management
+pygetwindow>=0.0.9              # Window management (cross-platform)
+pyperclip>=1.8                  # Clipboard
+
+# --- Web API (dashboard backend) ---
+fastapi>=0.110                  # API framework
+uvicorn>=0.27                   # ASGI server
+python-multipart>=0.0.9         # File uploads
+
+# --- Scheduler ---
+apscheduler>=3.10               # Task scheduling
+
+# --- Config & Utils ---
+pyyaml>=6.0                     # YAML config
+pydantic>=2.6                   # Data validation
+rich>=13.7                      # Pretty terminal output
+
+# --- WebSocket for real-time dashboard ---
+websockets>=12.0
