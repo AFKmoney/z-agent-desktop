@@ -1,154 +1,130 @@
-# Z.AI Desktop Agent
+# Z.AGENT — Autonomous Desktop Agent
 
-Un agent de bureau autonome propulsé par les modèles GLM de z.ai, contrôlable à distance via Telegram.
+Autonomous desktop agent powered by z.ai GLM models, controllable remotely via Telegram.
+Bilingual EN/FR, 100% Windows control, proactive push notifications.
 
-## Aperçu
+> **Compatible with the z.ai coding plan**: supports both the REST API and the
+> `z-ai-web-dev-sdk` via a Node sidecar (set `ZDA_USE_SDK=true`).
 
-`z.ai coding plan` → **agent de bureau 100% autonome** qui pilote votre ordinateur quand vous êtes absent.
+## Overview
 
-### Capacités
+`z.ai coding plan` → **100% autonomous desktop agent** that controls your computer when you're away.
+
+### What it can do
 
 | Module | Description |
 |--------|-------------|
-| 🖱️ **Screen Control** | Curseur, clavier, fenêtres — pilotage générique d'applications via PyAutoGUI + VLM |
-| 👁️ **Perception VLM** | GLM-4V analyse votre écran en temps réel pour comprendre l'UI |
-| 📁 **Files** | Organiser, déplacer, renommer, chercher, lire/écrire des fichiers |
-| 📧 **Emails** | IMAP/SMTP — lire, envoyer, répondre, trier (Gmail, Outlook, etc.) |
-| 📅 **Calendar** | ICS — lister, créer, supprimer des événements, rappels |
-| 🌐 **Browser** | Playwright — ouvrir, cliquer, remplir, extraire du contenu |
-| ⚙️ **System** | Lancer apps, gérer processus, notifications, presse-papier |
+| 🖱️ **Screen Control** | Cursor, keyboard, windows — generic UI automation via PyAutoGUI + VLM |
+| 👁️ **VLM Perception** | GLM-4V analyzes your screen in real time to understand the UI |
+| 📁 **Files** | Organize, move, rename, search, read/write files |
+| 📧 **Email** | IMAP/SMTP — read, send, reply, search (Gmail, Outlook, etc.) |
+| 📅 **Calendar** | ICS — list, create, delete events, reminders |
+| 🌐 **Browser** | Playwright — open, click, fill, extract content |
+| ⚙️ **System** | Launch apps, manage processes, notifications, clipboard |
+| 🪟 **Windows** | PowerShell, registry, services, COM (Outlook/Excel/Word), windows, Wi-Fi, volume, brightness, wallpaper, event log, installed apps, environment variables — **100% Windows desktop control** |
+| 💬 **Slack** | Send messages, files, list channels (optional) |
 
-### Architecture
+### Two backends, one client
 
-```
-┌─────────────────────────────────────────────┐
-│              Telegram / Dashboard            │  ← Vous êtes ici
-└────────────────┬────────────────────────────┘
-                 │ tâches (langage naturel)
-                 ▼
-┌─────────────────────────────────────────────┐
-│                  AGENT LOOP                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
-│  │ Planner  │→ │ Executor │→ │ Memory   │  │
-│  │ GLM-4.6  │  │          │  │          │  │
-│  └──────────┘  └────┬─────┘  └──────────┘  │
-│                     │                        │
-│       ┌─────────────┼─────────────┐         │
-│       ▼             ▼             ▼         │
-│  ┌────────┐   ┌──────────┐  ┌────────┐    │
-│  │ Screen │   │  Files   │  │ Email  │    │
-│  │ + VLM  │   │          │  │        │    │
-│  └────────┘   └──────────┘  └────────┘    │
-│  ┌────────┐   ┌──────────┐  ┌────────┐    │
-│  │Calendar│   │ Browser  │  │ System │    │
-│  └────────┘   └──────────┘  └────────┘    │
-└─────────────────────────────────────────────┘
-```
+| Backend | When to use | How to enable |
+|---------|-------------|---------------|
+| `rest` (default) | Always works, no Node.js needed | Default — no config required |
+| `sdk` | Coding plan billing, better rate limits | `ZDA_USE_SDK=true` (auto-falls back to `rest` if SDK missing) |
 
-## Installation
+### Proactive Telegram notifications
 
-### 1. Prérequis
+The agent pushes notifications to your Telegram, it doesn't just respond:
+- 🚀 Task started / ✅ completed / ❌ failed
+- 🔔 Calendar reminders X minutes before events
+- 📧 New email alerts (from a configured urgent sender list)
+- 💾 Disk almost full (>90%)
+- 🔥 Sustained high CPU (>90%)
+- ⚠️ Any custom alert from modules
 
-```bash
-Python 3.10+
-```
+## Quick start
 
-### 2. Clone et dépendances
+### 1. Install
 
 ```bash
 cd desktop-agent
+python -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 playwright install chromium
+
+# On Windows (for full Windows control):
+pip install pywin32
 ```
 
-### 3. Configuration
+### 2. Configure
 
-Créez un fichier `.env` (ou exportez les variables) :
+Create a `.env` file:
 
 ```bash
-export ZAI_API_KEY="votre-clé-z.ai"           # https://z.ai/
-export TELEGRAM_BOT_TOKEN="votre-token-bot"    # @BotFather
-export EMAIL_USER="vous@gmail.com"
-export EMAIL_APP_PASSWORD="votre-app-password" # https://myaccount.google.com/apppasswords
+ZAI_API_KEY=your-z.ai-key              # https://z.ai/
+TELEGRAM_BOT_TOKEN=your-bot-token      # @BotFather
+EMAIL_USER=you@gmail.com
+EMAIL_APP_PASSWORD=your-app-password   # https://myaccount.google.com/apppasswords
+
+# Optional: use the z.ai coding plan SDK instead of REST
+ZDA_USE_SDK=true
 ```
 
-Éditez `config/config.yaml` pour personnaliser les dossiers surveillés, règles d'organisation, etc.
+Edit `config/config.yaml` to customize:
+- `agent.language`: `"auto"` (detect from system), `"fr"`, or `"en"`
+- `files.watch_folders`: folders the agent can manage
+- `zai.models.planner`: switch to `glm-5.1` when ready
 
-### 4. Vérification
+### 3. Run
 
 ```bash
-python main.py --check
+python main.py              # Server mode (Telegram + Web API + Notifier)
+python main.py --cli        # Interactive CLI
+python main.py --task "..." # Single task
+python main.py --check      # Configuration check
 ```
 
-## Utilisation
+## Bilingual EN/FR
 
-### Mode serveur (Telegram + Dashboard)
+- **CLI / Telegram**: language is detected from each user message (heuristic on common words)
+- **Dashboard**: language toggle (🌐 EN/FR button in the header), defaults to browser locale
+- **Planner**: GLM-4.6 is told the detected language and responds in it
 
-```bash
-python main.py
-```
+To force a default language, set `agent.language: "fr"` or `"en"` in `config.yaml`.
 
-L'agent écoute alors sur :
-- **Telegram** : envoyez vos tâches en message
-- **Web API** : `http://127.0.0.1:8765` (pour le dashboard Next.js)
+## Telegram commands
 
-### Mode CLI interactif
+| Command | Action |
+|---------|--------|
+| `/start` `/status` `/help` | Agent status and help |
+| `/screenshot` | Instant screenshot sent to Telegram |
+| `/pause` `/resume` `/cancel` | Control the agent |
+| `/memory` | View memory state |
+| `/files organize` `/files list [path]` | File operations |
+| `/email unread` `/email send to \| subject \| body` | Email operations |
+| `/calendar list` | Upcoming events |
+| `/system info` `/system processes` | System info |
+| `/browser open <url>` | Open a URL |
 
-```bash
-python main.py --cli
-```
+Plus free-form natural language: just type your request.
 
-### Tâche unique
+## Security
 
-```bash
-python main.py --task "Organise mon dossier Téléchargements"
-```
+- **Full autonomy mode** by default (configurable) — the agent can execute destructive actions
+- **Protected paths** (~/.ssh, ~/.aws, system files) never touched
+- **Safe delete** to trash by default
+- **Blocked actions** (format disk, rm -rf /, etc.) always refused
+- **Whitelist apps** restricts which apps the agent can launch
 
-## Commandes Telegram
+⚠️ **Warning**: full autonomy is powerful. Make sure you understand the risks before enabling it in production.
 
-| Commande | Action |
-|----------|--------|
-| `/start` | Vérifier le statut |
-| `/status` | État détaillé de l'agent |
-| `/help` | Aide complète |
-| `/screenshot` | Capture d'écran instantanée |
-| `/pause` `/resume` | Contrôler l'agent |
-| `/files organize` | Trier le dossier Téléchargements |
-| `/email unread` | Lire les emails non lus |
-| `/calendar list` | Prochains événements |
-| `/system info` | Infos système |
-| `/browser open <url>` | Ouvrir un site |
+## Models used
 
-**Mode libre** : écrivez simplement votre demande en langage naturel.
+- **GLM-4.6** — planner (complex reasoning, multi-step decomposition)
+- **GLM-4V** — vision (screen analysis, UI element localization)
+- **GLM-4.5** — executor (fast, simple actions)
+- **GLM-5.1 / GLM-5.2** — already available in the API, switch in config.yaml when ready
 
-## Dashboard Web
-
-Le dashboard Next.js fournit une interface visuelle pour :
-- Voir l'état de l'agent en temps réel
-- Suivre les tâches en cours et l'historique
-- Consulter les logs live (WebSocket)
-- Visualiser les captures d'écran
-- Soumettre des tâches directement
-
-Voir `dashboard/README.md` pour l'installation.
-
-## Sécurité
-
-- **Plein contrôle** : l'agent peut exécuter toutes les actions sans confirmation (configurable)
-- **Chemins protégés** : `~/.ssh`, `~/.aws`, fichiers système — jamais touchés
-- **Suppressions sécurisées** : corbeille au lieu de suppression permanente
-- **Limite de taille fichier** : 100 Mo par défaut
-- **Whitelist apps** : lancement d'apps restreint à une liste
-
-⚠️ **Avertissement** : le mode "plein contrôle" est puissant. Assurez-vous de comprendre les risques avant de l'activer en production.
-
-## Modèles Z.AI utilisés
-
-- **GLM-4.6** : planification et raisonnement complexe
-- **GLM-4V** : perception visuelle de l'écran
-- **GLM-4.5** : exécution rapide d'actions simples
-- **GLM-5.1 / 5.2** : lorsque disponibles (décommenter dans `config.yaml`)
-
-## Licence
+## License
 
 MIT

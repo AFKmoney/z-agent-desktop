@@ -31,6 +31,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from utils.config import load_config
 from utils.logger import AgentLogger, get_logger
 from utils.security import init_security
+from utils.i18n import init_i18n, get_text, detect_lang, get_default_lang
 from core.agent import init_agent, get_agent
 from core.zai_client import init_zai
 
@@ -53,6 +54,13 @@ except ImportError as e:
     init_scheduler = None
     print(f"[warn] Scheduler disabled: {e.name}")
 
+try:
+    from interfaces.notifier import init_notifier, get_notifier
+except ImportError as e:
+    init_notifier = lambda config: None  # noqa: E731
+    get_notifier = lambda: None  # noqa: E731
+    print(f"[warn] Notifier disabled: {e.name}")
+
 
 def parse_args():
     p = argparse.ArgumentParser(description="Z.AI Desktop Agent")
@@ -70,17 +78,24 @@ async def run_server(args):
     config = load_config(args.config)
     AgentLogger.setup(config)
     log = get_logger("main")
-    
+
     log.info("=" * 60)
     log.info("Z.AI Desktop Agent - Starting")
     log.info("=" * 60)
-    
-    # Init security
+
+    # Init security and i18n
     init_security(config)
+    init_i18n(config)
     
     # Init agent
     agent = init_agent(config)
     await agent.initialize()
+
+    # Init proactive Telegram notifier
+    notifier = init_notifier(config)
+    if notifier:
+        await notifier.start()
+        log.info("Proactive Telegram notifier started")
     
     # Start scheduler (optional)
     scheduler = None
@@ -161,47 +176,52 @@ async def run_cli(args):
     config = load_config(args.config)
     AgentLogger.setup(config)
     log = get_logger("main")
-    
+
     init_security(config)
+    init_i18n(config)
     agent = init_agent(config)
     await agent.initialize()
     await agent.start()
-    
-    print("\n🤖 Z.AGENT - CLI mode")
-    print("Tape ta demande en langage naturel, ou 'quit' pour quitter.\n")
-    
+
+    print(f"\n{get_text('cli.welcome')}")
+
     while True:
         try:
-            user_input = input("👤> ").strip()
+            user_input = input(get_text("cli.prompt")).strip()
         except (EOFError, KeyboardInterrupt):
-            print("\n👋 Au revoir!")
+            print(f"\n{get_text('cli.goodbye')}")
             break
-        
+
         if user_input.lower() in ("quit", "exit", "q"):
             break
         if not user_input:
             continue
-        
+
+        # Detect language from this message
+        lang = detect_lang(user_input)
         task_id = await agent.submit_task(user_input, source="cli")
-        print(f"✅ Tâche {task_id} soumise, traitement...")
-        
+        print(get_text("cli.task_submitted", lang, task_id=task_id))
+
         # Wait for completion (simple: poll)
         while agent.current_task and agent.current_task.get("id") == task_id:
             await asyncio.sleep(0.5)
-        
+
         # Show result from memory
         memory = __import__("core.memory", fromlist=["get_memory"]).get_memory()
         tasks = memory.get_recent_tasks(1)
         if tasks:
             t = tasks[0]
-            print(f"\n📊 Résultat: {'✅' if t.get('success') else '❌'}")
+            success = t.get("success", False)
+            print(f"\n{get_text('cli.result_header', lang)} {'✅' if success else '❌'}")
             result = t.get("result", {})
-            print(f"   Étapes: {result.get('succeeded', 0)}/{result.get('total_steps', 0)}")
+            print(get_text("cli.steps_label", lang,
+                           ok=result.get("succeeded", 0),
+                           total=result.get("total_steps", 0)))
             for r in result.get("results", []):
                 status = "✅" if r.get("success") else "❌"
                 print(f"   {status} {r.get('action')} - {r.get('elapsed_s', 0):.1f}s")
         print()
-    
+
     await agent.stop()
 
 

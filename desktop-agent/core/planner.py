@@ -55,6 +55,30 @@ Available action categories:
 - slack.list_channels: list Slack channels
 - slack.send_file: upload a file to Slack (params: file_path, channels?, title?)
 - slack.list_messages: list recent messages (params: channel, limit?)
+- windows.powershell: run PowerShell command (params: command, timeout?, elevation?)
+- windows.registry_read: read registry value (params: hive, path, name)
+- windows.registry_write: write registry value (params: hive, path, name, value, reg_type?)
+- windows.registry_delete: delete registry key/value (params: hive, path, name?)
+- windows.service_list: list Windows services (params: filter_state?)
+- windows.service_start: start a service (params: name)
+- windows.service_stop: stop a service (params: name)
+- windows.window_list: list all visible windows
+- windows.window_focus: focus a window (params: title? or hwnd?)
+- windows.window_close: close a window (params: title? or hwnd?)
+- windows.window_minimize / windows.window_maximize: window state
+- windows.window_move: move/resize a window (params: title? or hwnd?, x, y, width, height)
+- windows.set_volume: set system volume 0-100 (params: level)
+- windows.set_brightness: set screen brightness 0-100 (params: level)
+- windows.set_wallpaper: set desktop wallpaper (params: path)
+- windows.list_installed_apps: list installed programs
+- windows.uninstall_app: uninstall an app (params: name)
+- windows.list_wifi: list Wi-Fi networks
+- windows.connect_wifi: connect to Wi-Fi (params: ssid, password?)
+- windows.event_log: read Windows event log (params: log_name?, max_entries?, level?)
+- windows.com_invoke: invoke COM object method (params: prog_id, method, args?)  # Outlook, Excel, Word
+- windows.taskbar_pin: pin/unpin app to taskbar (params: app_path, pin?)
+- windows.env_get: get env variable(s) (params: name?, scope?)
+- windows.env_set: set env variable (params: name, value, scope?)
 
 Output format: STRICT JSON, no markdown fences:
 {
@@ -80,7 +104,9 @@ Rules:
    via "requires_confirmation" or insert a placeholder in params.
 4. For destructive actions (delete, move), prefer safe alternatives and add a risk note.
 5. Maximum 20 steps. If the task needs more, break it down and ask the user.
-6. Respond in the user's language (French by default).
+6. Respond in the user's language (detect from the request — French or English).
+   The context.language field indicates the detected language ('fr' or 'en').
+   Use that language for "understanding", "reasoning", and "risks" fields.
 """
 
 
@@ -97,16 +123,21 @@ class Planner:
         """Generate an action plan for a user request."""
         if self.zai is None:
             return {"error": "ZaiClient not available - check API key"}
-        
+
+        # Detect language from request
+        from utils.i18n import detect_lang, get_default_lang
+        detected_lang = detect_lang(user_request, fallback=get_default_lang())
+
         # Build context from memory
         mem_ctx = {
             "user_preferences": self.memory.long_term.get("user_preferences", {}),
             "recent_tasks": self.memory.get_recent_tasks(3),
             "known_facts": list(self.memory.long_term.get("facts", {}).keys()),
+            "language": detected_lang,
         }
         if context:
             mem_ctx.update(context)
-        
+
         messages = [
             {"role": "system", "content": PLANNER_SYSTEM},
             {"role": "user", "content": (

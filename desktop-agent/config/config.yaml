@@ -24,6 +24,14 @@ zai:
   api_key: "${ZAI_API_KEY}"
   base_url: "https://api.z.ai/api/paas/v4"
 
+  # ----- BACKEND SELECTION -----
+  # 'rest': OpenAI-compatible REST API (default, works everywhere)
+  # 'sdk':  z-ai-web-dev-sdk via Node sidecar (auto-falls back to 'rest' if missing)
+  #         The SDK is the official client for the z.ai coding plan.
+  #         It provides better rate-limit handling, retries, and billing integration.
+  # Override with env: ZDA_USE_SDK=true
+  backend: "rest"
+
   # ----- ACTIVE MODEL ROUTING -----
   # Available models confirmed in API: glm-4.6, glm-4.5, glm-4v,
   # glm-4-plus, glm-5.1, glm-5.2

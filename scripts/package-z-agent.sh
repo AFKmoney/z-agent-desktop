@@ -111,34 +111,36 @@ cp "$PROJECT/eslint.config.mjs" "$DL/z-agent-dashboard/"
 cat > "$DL/z-agent-dashboard/README.md" << 'EOF'
 # Z.AGENT Dashboard
 
-Interface web Next.js pour surveiller et contrôler l'agent Z.AGENT.
+Next.js web interface to monitor and control the Z.AGENT — bilingual EN/FR.
 
 ## Installation
 
 ```bash
 cd z-agent-dashboard
-bun install   # ou: npm install
-bun run dev   # ou: npm run dev
+bun install   # or: npm install
+bun run dev   # or: npm run dev
 ```
 
-Le dashboard se lance sur http://localhost:3000 et se connecte à l'API agent sur http://localhost:8765.
+The dashboard runs on http://localhost:3000 and connects to the agent API on http://localhost:8765.
 
 ## Configuration
 
-Si votre API agent est sur une autre machine, définissez :
+If your agent API is on a different machine:
 
 ```bash
 export NEXT_PUBLIC_AGENT_API=http://192.168.1.10:8765
 ```
 
-## Fonctionnalités
+## Features
 
-- Statut de l'agent en temps réel (WebSocket)
-- Soumission de tâches en langage naturel
-- Historique des tâches avec plans détaillés
-- Logs en streaming
-- Galerie de captures d'écran
-- Contrôle pause / reprendre / stop
+- Real-time agent status via WebSocket
+- Natural language task submission
+- Task history with detailed plans
+- Live log streaming
+- Screenshot gallery
+- Pause / resume / stop controls
+- **Language toggle EN/FR** (top-right 🌐 button)
+- Detected automatically from your browser locale
 EOF
 
 # Zip the dashboard

@@ -2,17 +2,17 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-  Bot, Activity, Send, Square, Play, Pause, RefreshCw,
+  Bot, Activity, Send, Play, Pause, RefreshCw,
   Terminal, Image as ImageIcon, Brain, Cpu, Clock, Zap,
-  ChevronRight, Circle, AlertCircle, CheckCircle2, XCircle,
-  Camera, Trash2, FileText, Mail, Calendar, Globe, Monitor,
-  Lightbulb, Eye,
+  ChevronRight, Circle, CheckCircle2, XCircle,
+  Camera, FileText, Mail, Calendar, Globe, Monitor, MonitorSmartphone,
+  Lightbulb, Eye, Languages,
 } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi, type TaskRecord } from "@/lib/agent-api";
+import { t, detectBrowserLang, setStoredLang, stateLabel, type Lang } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -30,15 +30,6 @@ const STATE_COLORS: Record<string, string> = {
   stopped: "bg-red-500/15 text-red-400 border-red-500/30",
 };
 
-const STATE_LABELS: Record<string, string> = {
-  idle: "En attente",
-  planning: "Planification",
-  executing: "Exécution",
-  paused: "En pause",
-  error: "Erreur",
-  stopped: "Arrêté",
-};
-
 const MODULE_ICONS: Record<string, typeof FileText> = {
   screen: Monitor,
   files: FileText,
@@ -46,18 +37,17 @@ const MODULE_ICONS: Record<string, typeof FileText> = {
   calendar: Calendar,
   browser: Globe,
   system: Cpu,
+  windows: MonitorSmartphone,
+  slack: Send,
 };
 
-const QUICK_TASKS = [
-  { icon: FileText, label: "Trier Téléchargements", prompt: "Organise mon dossier Téléchargements par type de fichier" },
-  { icon: Mail, label: "Lire emails non lus", prompt: "Lis mes 5 derniers emails non lus et fais-moi un résumé" },
-  { icon: Calendar, label: "Prochains événements", prompt: "Liste mes 10 prochains événements de calendrier" },
-  { icon: Monitor, label: "Décrire l'écran", prompt: "Décris ce qu'il y a actuellement sur mon écran" },
-  { icon: Cpu, label: "Infos système", prompt: "Donne-moi les informations système (CPU, RAM, disque)" },
-  { icon: Camera, label: "Capture d'écran", prompt: "Prends une capture d'écran et analyse-la" },
-];
-
 export default function Dashboard() {
+  // Detect language on first render (no flashing)
+  const [lang, setLang] = useState<Lang>("en");
+  useEffect(() => {
+    setLang(detectBrowserLang());
+  }, []);
+
   const { status, logs, progress, connected, refresh } = useAgent();
   const { toast } = useToast();
   const [taskInput, setTaskInput] = useState("");
@@ -66,6 +56,17 @@ export default function Dashboard() {
   const [screenshots, setScreenshots] = useState<Array<{ name: string; size: number; modified: number }>>([]);
   const [activeTab, setActiveTab] = useState("tasks");
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  const tr = useCallback((key: string, vars?: Record<string, string | number>) => t(key, lang, vars), [lang]);
+
+  const QUICK_TASKS = useMemo(() => [
+    { icon: FileText, label: tr("dash.quick_sort_downloads"), prompt: lang === "fr" ? "Organise mon dossier Téléchargements par type de fichier" : "Organize my Downloads folder by file type" },
+    { icon: Mail, label: tr("dash.quick_read_emails"), prompt: lang === "fr" ? "Lis mes 5 derniers emails non lus et fais-moi un résumé" : "Read my 5 latest unread emails and summarize them" },
+    { icon: Calendar, label: tr("dash.quick_events"), prompt: lang === "fr" ? "Liste mes 10 prochains événements de calendrier" : "List my 10 upcoming calendar events" },
+    { icon: Monitor, label: tr("dash.quick_describe_screen"), prompt: lang === "fr" ? "Décris ce qu'il y a actuellement sur mon écran" : "Describe what's currently on my screen" },
+    { icon: Cpu, label: tr("dash.quick_system_info"), prompt: lang === "fr" ? "Donne-moi les informations système (CPU, RAM, disque)" : "Give me system info (CPU, RAM, disk)" },
+    { icon: Camera, label: tr("dash.quick_screenshot"), prompt: lang === "fr" ? "Prends une capture d'écran et analyse-la" : "Take a screenshot and analyze it" },
+  ], [tr, lang]);
 
   // Load tasks + screenshots periodically
   const loadData = useCallback(async () => {
@@ -76,7 +77,7 @@ export default function Dashboard() {
       ]);
       setTasks(tasksRes.tasks || []);
       setScreenshots(shotsRes.screenshots || []);
-    } catch (e) {
+    } catch {
       // silent
     }
   }, []);
@@ -99,16 +100,13 @@ export default function Dashboard() {
     setSubmitting(true);
     try {
       const res = await agentApi.submitTask(taskInput, "dashboard");
-      toast({
-        title: "Tâche envoyée",
-        description: `ID: ${res.task_id}`,
-      });
+      toast({ title: tr("toast.task_sent"), description: `ID: ${res.task_id}` });
       setTaskInput("");
       setTimeout(loadData, 500);
     } catch (e) {
       toast({
-        title: "Erreur",
-        description: e instanceof Error ? e.message : "Échec de l'envoi",
+        title: tr("toast.error"),
+        description: e instanceof Error ? e.message : "",
         variant: "destructive",
       });
     } finally {
@@ -119,12 +117,12 @@ export default function Dashboard() {
   const sendCommand = async (cmd: "pause" | "resume" | "stop" | "start") => {
     try {
       await agentApi.command(cmd);
-      toast({ title: `Commande: ${cmd}`, description: "Envoyée à l'agent" });
+      toast({ title: `${tr("toast.command_sent")}: ${cmd}` });
       setTimeout(refresh, 200);
     } catch (e) {
       toast({
-        title: "Erreur",
-        description: e instanceof Error ? e.message : "Échec",
+        title: tr("toast.error"),
+        description: e instanceof Error ? e.message : "",
         variant: "destructive",
       });
     }
@@ -133,15 +131,21 @@ export default function Dashboard() {
   const captureScreenshot = async () => {
     try {
       await agentApi.captureScreenshot();
-      toast({ title: "Capture prise", description: "Rafraîchissement..." });
+      toast({ title: tr("toast.captured") });
       setTimeout(loadData, 500);
-    } catch (e) {
+    } catch {
       toast({
-        title: "Erreur",
-        description: "Agent hors-ligne ou perception indisponible",
+        title: tr("toast.error"),
+        description: tr("toast.agent_offline"),
         variant: "destructive",
       });
     }
+  };
+
+  const toggleLang = () => {
+    const newLang: Lang = lang === "fr" ? "en" : "fr";
+    setLang(newLang);
+    setStoredLang(newLang);
   };
 
   const state = status?.state ?? "stopped";
@@ -162,11 +166,23 @@ export default function Dashboard() {
             </div>
             <div>
               <h1 className="text-lg font-bold tracking-tight">Z.AGENT</h1>
-              <p className="text-xs text-muted-foreground">Desktop Control Center</p>
+              <p className="text-xs text-muted-foreground">{tr("dash.subtitle")}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Language toggle */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={toggleLang}
+              className="gap-1.5 font-mono text-xs"
+              title="Switch language"
+            >
+              <Languages className="w-4 h-4" />
+              {lang.toUpperCase()}
+            </Button>
+
             <div className="flex items-center gap-2 text-xs">
               <Circle
                 className={cn(
@@ -175,14 +191,14 @@ export default function Dashboard() {
                 )}
               />
               <span className="text-muted-foreground">
-                {connected ? "WS connecté" : "Hors-ligne"}
+                {connected ? tr("dash.connected") : tr("dash.offline")}
               </span>
             </div>
             <Badge
               variant="outline"
               className={cn("font-mono uppercase", STATE_COLORS[state])}
             >
-              {STATE_LABELS[state] || state}
+              {stateLabel(state, lang)}
             </Badge>
             <div className="flex gap-1">
               <Button
@@ -199,7 +215,7 @@ export default function Dashboard() {
                 variant="ghost"
                 onClick={() => sendCommand("resume")}
                 disabled={state !== "paused"}
-                title="Reprendre"
+                title="Resume"
               >
                 <Play className="w-4 h-4" />
               </Button>
@@ -207,7 +223,7 @@ export default function Dashboard() {
                 size="sm"
                 variant="ghost"
                 onClick={refresh}
-                title="Rafraîchir"
+                title="Refresh"
               >
                 <RefreshCw className="w-4 h-4" />
               </Button>
@@ -219,37 +235,12 @@ export default function Dashboard() {
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          <StatCard
-            icon={Activity}
-            label="État"
-            value={STATE_LABELS[state] || state}
-            color={STATE_COLORS[state] || ""}
-          />
-          <StatCard
-            icon={Clock}
-            label="File d'attente"
-            value={String(status?.queue_size ?? 0)}
-          />
-          <StatCard
-            icon={Brain}
-            label="Faits mémo"
-            value={String(memory?.facts_count ?? 0)}
-          />
-          <StatCard
-            icon={Zap}
-            label="Tâches"
-            value={String(memory?.tasks_count ?? 0)}
-          />
-          <StatCard
-            icon={Cpu}
-            label="Uptime"
-            value={`${Math.floor((status?.uptime_s ?? 0) / 60)}m`}
-          />
-          <StatCard
-            icon={Terminal}
-            label="Logs"
-            value={String(logs.length)}
-          />
+          <StatCard icon={Activity} label={tr("label.state")} value={stateLabel(state, lang)} color={STATE_COLORS[state] || ""} />
+          <StatCard icon={Clock} label={tr("label.queue")} value={String(status?.queue_size ?? 0)} />
+          <StatCard icon={Brain} label={tr("dash.facts")} value={String(memory?.facts_count ?? 0)} />
+          <StatCard icon={Zap} label={tr("dash.tasks")} value={String(memory?.tasks_count ?? 0)} />
+          <StatCard icon={Cpu} label={tr("label.uptime")} value={`${Math.floor((status?.uptime_s ?? 0) / 60)}m`} />
+          <StatCard icon={Terminal} label={tr("label.logs")} value={String(logs.length)} />
         </div>
 
         {/* Main grid */}
@@ -260,20 +251,18 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Send className="w-4 h-4 text-primary" />
-                  Soumettre une tâche
+                  {tr("dash.submit_task")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Textarea
-                  placeholder="Décris la tâche en langage naturel. Ex: « Tri mes téléchargements par type de fichier et envoie-moi un résumé par mail »"
+                  placeholder={tr("dash.task_placeholder")}
                   value={taskInput}
                   onChange={(e) => setTaskInput(e.target.value)}
                   rows={3}
                   className="resize-none"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                      submitTask();
-                    }
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitTask();
                   }}
                 />
                 <div className="flex flex-wrap gap-2">
@@ -293,14 +282,11 @@ export default function Dashboard() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-muted-foreground">
-                    Cmd/Ctrl+Enter pour envoyer
+                    ⌘/Ctrl+Enter
                   </span>
-                  <Button
-                    onClick={submitTask}
-                    disabled={!taskInput.trim() || submitting}
-                  >
+                  <Button onClick={submitTask} disabled={!taskInput.trim() || submitting}>
                     <Send className="w-4 h-4 mr-2" />
-                    {submitting ? "Envoi..." : "Envoyer"}
+                    {submitting ? tr("dash.sending") : tr("dash.send")}
                   </Button>
                 </div>
               </CardContent>
@@ -312,18 +298,14 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    Tâche en cours
+                    {tr("dash.current_task")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Badge variant="outline" className="font-mono text-xs">
-                        {currentTask.id}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        via {currentTask.source}
-                      </Badge>
+                      <Badge variant="outline" className="font-mono text-xs">{currentTask.id}</Badge>
+                      <Badge variant="secondary" className="text-xs">{tr("label.via")} {currentTask.source}</Badge>
                     </div>
                     <p className="text-sm">{currentTask.request}</p>
                   </div>
@@ -335,19 +317,18 @@ export default function Dashboard() {
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="tasks">
                   <FileText className="w-4 h-4 mr-2" />
-                  Tâches ({tasks.length})
+                  {tr("dash.tasks")} ({tasks.length})
                 </TabsTrigger>
                 <TabsTrigger value="logs">
                   <Terminal className="w-4 h-4 mr-2" />
-                  Logs ({logs.length})
+                  {tr("dash.logs")} ({logs.length})
                 </TabsTrigger>
                 <TabsTrigger value="screens">
                   <ImageIcon className="w-4 h-4 mr-2" />
-                  Captures ({screenshots.length})
+                  {tr("dash.screenshots")} ({screenshots.length})
                 </TabsTrigger>
               </TabsList>
 
-              {/* Tasks tab */}
               <TabsContent value="tasks" className="mt-4">
                 <Card>
                   <CardContent className="p-0">
@@ -355,14 +336,12 @@ export default function Dashboard() {
                       {tasks.length === 0 ? (
                         <div className="p-8 text-center text-muted-foreground text-sm">
                           <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                          Aucune tâche pour le moment.
-                          <br />
-                          Soumets-en une ci-dessus pour commencer.
+                          {tr("dash.no_tasks")}
                         </div>
                       ) : (
                         <div className="divide-y divide-border">
                           {tasks.map((task, idx) => (
-                            <TaskItem key={task.task_id || idx} task={task} />
+                            <TaskItem key={task.task_id || idx} task={task} lang={lang} tr={tr} />
                           ))}
                         </div>
                       )}
@@ -371,7 +350,6 @@ export default function Dashboard() {
                 </Card>
               </TabsContent>
 
-              {/* Logs tab */}
               <TabsContent value="logs" className="mt-4">
                 <Card>
                   <CardContent className="p-0">
@@ -380,12 +358,10 @@ export default function Dashboard() {
                         {logs.length === 0 ? (
                           <div className="p-8 text-center text-muted-foreground">
                             <Terminal className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                            Aucun log. Connectez l'agent Python pour voir les logs en temps réel.
+                            {tr("dash.no_logs")}
                           </div>
                         ) : (
-                          logs.map((log, idx) => (
-                            <LogLine key={idx} log={log} />
-                          ))
+                          logs.map((log, idx) => <LogLine key={idx} log={log} />)
                         )}
                         <div ref={logsEndRef} />
                       </div>
@@ -394,23 +370,20 @@ export default function Dashboard() {
                 </Card>
               </TabsContent>
 
-              {/* Screenshots tab */}
               <TabsContent value="screens" className="mt-4">
                 <Card>
                   <CardContent className="p-4">
                     <div className="flex justify-between items-center mb-4">
-                      <p className="text-sm text-muted-foreground">
-                        Captures d'écran de l'agent (VLM perception)
-                      </p>
+                      <p className="text-sm text-muted-foreground">{tr("dash.vlm_description")}</p>
                       <Button size="sm" variant="outline" onClick={captureScreenshot}>
                         <Camera className="w-4 h-4 mr-2" />
-                        Capturer maintenant
+                        {tr("dash.capture_now")}
                       </Button>
                     </div>
                     {screenshots.length === 0 ? (
                       <div className="p-8 text-center text-muted-foreground text-sm">
                         <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        Aucune capture disponible.
+                        {tr("dash.no_screenshots")}
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -431,31 +404,29 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Brain className="w-4 h-4 text-primary" />
-                  Mémoire
+                  {tr("dash.memory")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <MemoryRow label="Faits persistants" value={memory?.facts_count ?? 0} />
-                <MemoryRow label="Préférences" value={memory?.preferences_count ?? 0} />
-                <MemoryRow label="Raccourcis appris" value={memory?.shortcuts_count ?? 0} />
+                <MemoryRow label={tr("dash.facts")} value={memory?.facts_count ?? 0} />
+                <MemoryRow label={tr("dash.preferences")} value={memory?.preferences_count ?? 0} />
+                <MemoryRow label={tr("dash.shortcuts")} value={memory?.shortcuts_count ?? 0} />
                 <Separator />
                 <div>
-                  <p className="text-xs text-muted-foreground mb-2">Dernières tâches</p>
+                  <p className="text-xs text-muted-foreground mb-2">{tr("dash.recent_tasks")}</p>
                   <div className="space-y-1.5">
-                    {memory?.recent_tasks?.map((t, idx) => (
+                    {memory?.recent_tasks?.map((task, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs">
-                        {(t as Record<string, unknown>).success ? (
+                        {(task as Record<string, unknown>).success ? (
                           <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                         ) : (
                           <XCircle className="w-3 h-3 text-red-500" />
                         )}
                         <span className="truncate">
-                          {String((t as Record<string, unknown>).request || "").slice(0, 40)}
+                          {String((task as Record<string, unknown>).request || "").slice(0, 40)}
                         </span>
                       </div>
-                    )) ?? (
-                      <p className="text-xs text-muted-foreground">Aucune tâche récente</p>
-                    )}
+                    )) ?? <p className="text-xs text-muted-foreground">{tr("misc.no_recent_tasks")}</p>}
                   </div>
                 </div>
               </CardContent>
@@ -465,18 +436,15 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Cpu className="w-4 h-4 text-primary" />
-                  Modules actifs
+                  {tr("dash.modules")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-2">
                   {Object.entries(MODULE_ICONS).map(([name, Icon]) => (
-                    <div
-                      key={name}
-                      className="flex items-center gap-2 p-2 rounded-md border border-border bg-card/50"
-                    >
+                    <div key={name} className="flex items-center gap-2 p-2 rounded-md border border-border bg-card/50">
                       <Icon className="w-4 h-4 text-primary" />
-                      <span className="text-xs capitalize">{name}</span>
+                      <span className="text-xs">{tr(`module.${name}`)}</span>
                       <Circle className="w-1.5 h-1.5 fill-emerald-500 text-emerald-500 ml-auto" />
                     </div>
                   ))}
@@ -488,21 +456,14 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Eye className="w-4 h-4 text-primary" />
-                  Perception VLM
+                  {tr("dash.vlm_perception")}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-xs text-muted-foreground mb-3">
-                  GLM-4V analyse l'écran pour comprendre l'interface et localiser les éléments.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={captureScreenshot}
-                >
+                <p className="text-xs text-muted-foreground mb-3">{tr("dash.vlm_description")}</p>
+                <Button size="sm" variant="outline" className="w-full" onClick={captureScreenshot}>
                   <Camera className="w-4 h-4 mr-2" />
-                  Analyser l'écran
+                  {tr("dash.analyze_screen")}
                 </Button>
               </CardContent>
             </Card>
@@ -512,12 +473,8 @@ export default function Dashboard() {
                 <div className="flex items-start gap-3">
                   <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                   <div className="space-y-1.5">
-                    <p className="text-sm font-medium">Astuce</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      L'agent fonctionne en autonomie complète. Tu peux lui envoyer
-                      des tâches depuis Telegram quand tu es absent — il planifie,
-                      exécute et te notifie du résultat.
-                    </p>
+                    <p className="text-sm font-medium">{tr("misc.tip_title")}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{tr("misc.tip_body")}</p>
                   </div>
                 </div>
               </CardContent>
@@ -528,7 +485,7 @@ export default function Dashboard() {
 
       <footer className="border-t border-border mt-12 py-4">
         <div className="container mx-auto px-4 flex justify-between items-center text-xs text-muted-foreground">
-          <span>Z.AGENT v1.0.0 — propulsé par z.ai GLM</span>
+          <span>Z.AGENT v1.1.0 — {lang === "fr" ? "propulsé par z.ai GLM" : "powered by z.ai GLM"}</span>
           <span className="font-mono">{connected ? "●" : "○"} {state}</span>
         </div>
       </footer>
@@ -539,28 +496,18 @@ export default function Dashboard() {
 // === Sub-components ===
 
 function StatCard({
-  icon: Icon,
-  label,
-  value,
-  color,
+  icon: Icon, label, value, color,
 }: {
-  icon: typeof Activity;
-  label: string;
-  value: string;
-  color?: string;
+  icon: typeof Activity; label: string; value: string; color?: string;
 }) {
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-muted-foreground uppercase tracking-wider">
-            {label}
-          </span>
+          <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
           <Icon className="w-3.5 h-3.5 text-muted-foreground" />
         </div>
-        <div className={cn("text-lg font-bold", color && "font-mono")}>
-          {value}
-        </div>
+        <div className={cn("text-lg font-bold", color && "font-mono")}>{value}</div>
       </CardContent>
     </Card>
   );
@@ -583,57 +530,43 @@ function LogLine({ log }: { log: { timestamp: string; level: string; logger: str
     ERROR: "text-red-400",
     CRITICAL: "text-red-500",
   };
-
-  const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString("fr-FR", { hour12: false }) : "";
-
+  const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString(undefined, { hour12: false }) : "";
   return (
     <div className="flex gap-2 leading-relaxed hover:bg-accent/20 -mx-1 px-1 rounded">
       <span className="text-zinc-600 flex-shrink-0">{time}</span>
-      <span className={cn("flex-shrink-0 w-12", levelColors[log.level] || "text-zinc-400")}>
-        {log.level}
-      </span>
+      <span className={cn("flex-shrink-0 w-12", levelColors[log.level] || "text-zinc-400")}>{log.level}</span>
       <span className="text-zinc-500 flex-shrink-0 w-20 truncate">{log.logger}</span>
       <span className="text-foreground/90 break-all">{log.message}</span>
     </div>
   );
 }
 
-function TaskItem({ task }: { task: TaskRecord }) {
+function TaskItem({
+  task, lang, tr,
+}: {
+  task: TaskRecord;
+  lang: Lang;
+  tr: (key: string, vars?: Record<string, string | number>) => string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const success = task.success;
   const plan = task.plan;
   const result = task.result;
   const steps = plan?.plan || [];
   const results = result?.results || [];
-  const time = task.timestamp ? new Date(task.timestamp * 1000).toLocaleString("fr-FR") : "";
+  const time = task.timestamp ? new Date(task.timestamp * 1000).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "";
 
   return (
     <div className="p-4 hover:bg-accent/20 transition-colors">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full text-left flex items-start gap-3"
-      >
-        {success ? (
-          <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-        ) : (
-          <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-        )}
+      <button onClick={() => setExpanded(!expanded)} className="w-full text-left flex items-start gap-3">
+        {success ? <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                 : <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />}
         <div className="flex-1 min-w-0">
           <p className="text-sm truncate">{task.request}</p>
           <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
             <span>{time}</span>
-            {task.source && (
-              <>
-                <span>·</span>
-                <Badge variant="outline" className="text-[10px] py-0 h-4">{task.source}</Badge>
-              </>
-            )}
-            {result && (
-              <>
-                <span>·</span>
-                <span>{result.succeeded}/{result.total_steps} étapes</span>
-              </>
-            )}
+            {task.source && (<><span>·</span><Badge variant="outline" className="text-[10px] py-0 h-4">{task.source}</Badge></>)}
+            {result && (<><span>·</span><span>{result.succeeded}/{result.total_steps} {tr("dash.steps_label")}</span></>)}
           </div>
         </div>
         <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", expanded && "rotate-90")} />
@@ -642,14 +575,12 @@ function TaskItem({ task }: { task: TaskRecord }) {
       {expanded && (
         <div className="mt-3 ml-7 space-y-2">
           {plan?.understanding && (
-            <p className="text-xs text-muted-foreground italic">
-              💡 {plan.understanding}
-            </p>
+            <p className="text-xs text-muted-foreground italic">💡 {plan.understanding}</p>
           )}
           {steps.length > 0 && (
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Plan ({steps.length} étapes)
+                {tr("dash.plan_label")} ({steps.length} {tr("dash.steps_label")})
               </p>
               {steps.map((step, idx) => {
                 const stepResult = results[idx];
@@ -676,25 +607,14 @@ function TaskItem({ task }: { task: TaskRecord }) {
 function ScreenshotTile({ shot }: { shot: { name: string; size: number; modified: number } }) {
   const [errored, setErrored] = useState(false);
   const src = useMemo(() => {
-    try {
-      return agentApi.screenshotUrl(shot.name);
-    } catch {
-      return null;
-    }
+    try { return agentApi.screenshotUrl(shot.name); } catch { return null; }
   }, [shot.name]);
-
-  const time = new Date(shot.modified * 1000).toLocaleTimeString("fr-FR", { hour: 2, minute: 2, second: 2 });
+  const time = new Date(shot.modified * 1000).toLocaleTimeString(undefined, { hour: 2, minute: 2, second: 2 });
 
   return (
     <div className="relative group rounded-md overflow-hidden border border-border bg-card">
       {src && !errored ? (
-        <img
-          src={src}
-          alt={shot.name}
-          className="w-full aspect-video object-cover"
-          loading="lazy"
-          onError={() => setErrored(true)}
-        />
+        <img src={src} alt={shot.name} className="w-full aspect-video object-cover" loading="lazy" onError={() => setErrored(true)} />
       ) : (
         <div className="w-full aspect-video flex items-center justify-center bg-muted">
           <ImageIcon className="w-6 h-6 text-muted-foreground" />

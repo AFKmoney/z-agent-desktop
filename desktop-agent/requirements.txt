@@ -52,3 +52,7 @@ websockets>=12.0
 # === Optional extension modules ===
 # Uncomment to enable Slack integration (modules/slack_notifier.py)
 # slack-sdk>=3.27
+
+# --- Windows Control (modules/windows_control.py) ---
+# Required on Windows for full desktop control (registry, services, windows, COM)
+# pywin32>=306; sys_platform == "win32"

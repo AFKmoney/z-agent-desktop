@@ -77,6 +77,7 @@ class Agent:
             ("calendar_client", "modules.calendar_client"),
             ("browser_control", "modules.browser_control"),
             ("system_control", "modules.system_control"),
+            ("windows_control", "modules.windows_control"),
             # Optional extension modules (auto-skip if deps missing):
             ("slack_notifier", "modules.slack_notifier"),
             # Add your own modules here — see modules/custom_module_template.py
@@ -115,16 +116,29 @@ class Agent:
         """Process a single task: plan + execute."""
         task_id = task["id"]
         request = task["request"]
-        
+
         self.current_task = task
         self._set_state(AgentState.PLANNING)
-        
+
+        # Detect language for notifications
+        from utils.i18n import detect_lang, get_default_lang
+        lang = detect_lang(request, fallback=get_default_lang())
+
         # Broadcast start
         for cb in list(self._progress_subscribers):
             try:
                 await cb({"event": "task_start", "task_id": task_id, "request": request})
             except Exception:
                 pass
+
+        # Proactive Telegram notification: task started
+        try:
+            from interfaces.notifier import get_notifier
+            notifier = get_notifier()
+            if notifier:
+                await notifier.notify_task_started(task_id, request, lang=lang)
+        except Exception as e:
+            log.debug(f"Notifier not available: {e}")
         
         # 1. Plan
         planner = get_planner()
@@ -175,6 +189,29 @@ class Agent:
                 await cb({"event": "task_end", "task_id": task_id, "result": result})
             except Exception:
                 pass
+
+        # Proactive Telegram notification: task completed
+        try:
+            from interfaces.notifier import get_notifier
+            notifier = get_notifier()
+            if notifier:
+                if result.get("success", False):
+                    await notifier.notify_task_completed(
+                        task_id, request,
+                        succeeded=result.get("succeeded", 0),
+                        total=result.get("total_steps", 0),
+                        lang=lang,
+                    )
+                else:
+                    # Find first error
+                    first_error = "unknown"
+                    for r in result.get("results", []):
+                        if not r.get("success", False):
+                            first_error = str(r.get("error", "unknown"))
+                            break
+                    await notifier.notify_task_failed(task_id, request, first_error, lang=lang)
+        except Exception as e:
+            log.debug(f"Notifier not available: {e}")
         
         self.current_task = None
         self._set_state(AgentState.IDLE)
