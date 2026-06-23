@@ -69,21 +69,29 @@ class Agent:
         init_executor(self.config)
         
         # Register module handlers
-        from modules.screen_control import register as reg_screen
-        from modules.file_manager import register as reg_files
-        from modules.email_client import register as reg_email
-        from modules.calendar_client import register as reg_calendar
-        from modules.browser_control import register as reg_browser
-        from modules.system_control import register as reg_system
-        
+        # Register modules — gracefully skip those whose deps are missing
+        module_registry = [
+            ("screen_control", "modules.screen_control"),
+            ("file_manager", "modules.file_manager"),
+            ("email_client", "modules.email_client"),
+            ("calendar_client", "modules.calendar_client"),
+            ("browser_control", "modules.browser_control"),
+            ("system_control", "modules.system_control"),
+            # Optional extension modules (auto-skip if deps missing):
+            ("slack_notifier", "modules.slack_notifier"),
+            # Add your own modules here — see modules/custom_module_template.py
+        ]
         executor = get_executor()
-        reg_screen(executor, self.config)
-        reg_files(executor, self.config)
-        reg_email(executor, self.config)
-        reg_calendar(executor, self.config)
-        reg_browser(executor, self.config)
-        reg_system(executor, self.config)
-        
+        for mod_name, mod_path in module_registry:
+            try:
+                mod = __import__(mod_path, fromlist=["register"])
+                mod.register(executor, self.config)
+                log.info(f"  ✓ Module loaded: {mod_name}")
+            except ImportError as e:
+                log.warning(f"  ✗ Module skipped: {mod_name} (missing dep: {e.name})")
+            except Exception as e:
+                log.error(f"  ! Module {mod_name} failed: {e}")
+
         log.info(f"Agent initialized. {len(executor.list_available_actions())} actions available.")
         self._set_state(AgentState.IDLE)
     

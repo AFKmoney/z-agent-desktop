@@ -23,6 +23,7 @@ except ImportError:
 
 def register(executor, config: dict):
     if not ICAL_AVAILABLE:
+        log.info("Calendar module not registered — icalendar not installed")
         return
     mod = CalendarModule(config)
     executor.register_handler("calendar.list", mod.list_events)
@@ -30,6 +31,7 @@ def register(executor, config: dict):
     executor.register_handler("calendar.delete", mod.delete_event)
     executor.register_handler("calendar.search", mod.search_events)
     executor.register_handler("calendar.remind", mod.set_reminder)
+    log.info("Calendar module registered: 5 actions available")
 
 
 class CalendarModule:
@@ -40,9 +42,11 @@ class CalendarModule:
         self.local_calendar = os.path.expandvars(
             os.path.expanduser(self.config.get("local_calendar", ""))
         )
-        os.makedirs(os.path.dirname(self.local_calendar), exist_ok=True)
-        if not os.path.exists(self.local_calendar):
-            self._init_calendar()
+        # Only init calendar dir/file if icalendar is actually available
+        if ICAL_AVAILABLE and self.local_calendar:
+            os.makedirs(os.path.dirname(self.local_calendar), exist_ok=True)
+            if not os.path.exists(self.local_calendar):
+                self._init_calendar()
     
     def _init_calendar(self):
         cal = Calendar()
@@ -51,11 +55,11 @@ class CalendarModule:
         with open(self.local_calendar, "wb") as f:
             f.write(cal.to_ical())
     
-    def _load_calendar(self) -> Calendar:
+    def _load_calendar(self):
         with open(self.local_calendar, "rb") as f:
             return Calendar.from_ical(f.read())
-    
-    def _save_calendar(self, cal: Calendar):
+
+    def _save_calendar(self, cal):
         with open(self.local_calendar, "wb") as f:
             f.write(cal.to_ical())
     

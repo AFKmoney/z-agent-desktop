@@ -11,11 +11,18 @@ rm -rf "$DL/z-agent-desktop-agent" "$DL/z-agent-dashboard" "$DL/INSTALLATION.md"
 rm -f "$DL/z-agent-desktop-agent.zip" "$DL/z-agent-dashboard.zip"
 
 echo "==> Packaging desktop-agent Python code"
-# Copy without data folders, caches, __pycache__
+# Copy without venv, data folders, caches, __pycache__
 mkdir -p "$DL/z-agent-desktop-agent"
-cp -r "$PROJECT/desktop-agent"/* "$DL/z-agent-desktop-agent/"
+# Explicit list of dirs/files to copy (avoid venv, .git, etc.)
+for item in core modules interfaces utils config main.py requirements.txt README.md .env.example start.sh start.bat; do
+    if [ -e "$PROJECT/desktop-agent/$item" ]; then
+        cp -r "$PROJECT/desktop-agent/$item" "$DL/z-agent-desktop-agent/"
+    fi
+done
+# Clean any pycache that snuck in
 find "$DL/z-agent-desktop-agent" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-find "$DL/z-agent-desktop-agent" -type d -name "data" -exec rm -rf {} + 2>/dev/null || true
+find "$DL/z-agent-desktop-agent" -name "*.pyc" -delete 2>/dev/null || true
+# Remove any data folder
 rm -rf "$DL/z-agent-desktop-agent/data" 2>/dev/null || true
 
 # Add .env.example

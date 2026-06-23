@@ -33,9 +33,25 @@ from utils.logger import AgentLogger, get_logger
 from utils.security import init_security
 from core.agent import init_agent, get_agent
 from core.zai_client import init_zai
-from interfaces.telegram_bot import init_telegram
-from interfaces.web_api import app as web_app
-from interfaces.scheduler import init_scheduler
+
+# Optional interfaces — gracefully degrade if deps missing
+try:
+    from interfaces.telegram_bot import init_telegram
+except ImportError as e:
+    init_telegram = lambda config: None  # noqa: E731
+    print(f"[warn] Telegram interface disabled: {e.name}")
+
+try:
+    from interfaces.web_api import app as web_app
+except ImportError as e:
+    web_app = None
+    print(f"[warn] Web API disabled: {e.name}")
+
+try:
+    from interfaces.scheduler import init_scheduler
+except ImportError as e:
+    init_scheduler = None
+    print(f"[warn] Scheduler disabled: {e.name}")
 
 
 def parse_args():
@@ -66,10 +82,15 @@ async def run_server(args):
     agent = init_agent(config)
     await agent.initialize()
     
-    # Start scheduler
-    scheduler = init_scheduler(config)
-    await scheduler.start()
-    
+    # Start scheduler (optional)
+    scheduler = None
+    if init_scheduler is not None:
+        try:
+            scheduler = init_scheduler(config)
+            await scheduler.start()
+        except Exception as e:
+            log.warning(f"Scheduler could not start: {e}")
+
     # Start Telegram (if configured)
     telegram = init_telegram(config)
     if telegram:
@@ -77,40 +98,62 @@ async def run_server(args):
         log.info("Telegram interface started")
     else:
         log.warning("Telegram interface disabled (no token)")
-    
+
     # Start Web API
-    import uvicorn
-    dash_cfg = config.get("dashboard", {})
-    host = args.host or dash_cfg.get("host", "127.0.0.1")
-    port = args.port or dash_cfg.get("port", 8765)
-    
-    config_uvicorn = uvicorn.Config(
-        web_app,
-        host=host,
-        port=port,
-        log_level="info",
-        access_log=False,
-    )
-    server = uvicorn.Server(config_uvicorn)
-    
+    server = None
+    if web_app is not None:
+        try:
+            import uvicorn
+            dash_cfg = config.get("dashboard", {})
+            host = args.host or dash_cfg.get("host", "127.0.0.1")
+            port = args.port or dash_cfg.get("port", 8765)
+
+            config_uvicorn = uvicorn.Config(
+                web_app,
+                host=host,
+                port=port,
+                log_level="info",
+                access_log=False,
+            )
+            server = uvicorn.Server(config_uvicorn)
+        except ImportError:
+            log.warning("uvicorn not installed - Web API disabled")
+
     # Start agent loop
     await agent.start()
-    
-    log.info(f"Web API on http://{host}:{port}")
-    log.info(f"Dashboard: open the Next.js app and connect to this API")
+
+    if server:
+        log.info(f"Web API on http://{host}:{port}")
+        log.info(f"Dashboard: open the Next.js app and connect to this API")
     log.info("Agent is running. Press Ctrl+C to stop.")
-    
-    # Run web server
-    try:
-        await server.serve()
-    except asyncio.CancelledError:
-        pass
-    finally:
-        log.info("Shutting down...")
-        if telegram:
-            await telegram.stop()
-        await scheduler.stop()
-        await agent.stop()
+
+    # Run web server (blocks)
+    if server:
+        try:
+            await server.serve()
+        except asyncio.CancelledError:
+            pass
+        finally:
+            log.info("Shutting down...")
+            if telegram:
+                await telegram.stop()
+            if scheduler:
+                await scheduler.stop()
+            await agent.stop()
+    else:
+        # No web server — keep the process alive
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            log.info("Shutting down...")
+            if telegram:
+                await telegram.stop()
+            if scheduler:
+                await scheduler.stop()
+            await agent.stop()
 
 
 async def run_cli(args):
@@ -166,29 +209,44 @@ async def run_single_task(args):
     """Run a single task and exit."""
     config = load_config(args.config)
     AgentLogger.setup(config)
-    
+
     init_security(config)
     agent = init_agent(config)
     await agent.initialize()
     await agent.start()
-    
+
     task_id = await agent.submit_task(args.task, source="cli")
-    
-    # Wait for completion
-    while agent.state.value in ("planning", "executing"):
-        await asyncio.sleep(0.5)
-    
+    print(f"⏳ Task {task_id} submitted, waiting for completion...")
+
+    # Wait for completion: poll memory until task_id appears in history
     memory = __import__("core.memory", fromlist=["get_memory"]).get_memory()
-    tasks = memory.get_recent_tasks(1)
-    if tasks:
-        t = tasks[0]
-        print(f"\n{'✅' if t.get('success') else '❌'} Task: {t.get('request')}")
-        result = t.get("result", {})
-        print(f"Steps: {result.get('succeeded', 0)}/{result.get('total_steps', 0)}")
-        for r in result.get("results", []):
-            status = "✅" if r.get("success") else "❌"
-            print(f"  {status} {r.get('action')}: {r.get('error', 'OK')[:100]}")
-    
+    deadline = asyncio.get_event_loop().time() + 120  # 2 min timeout
+    while asyncio.get_event_loop().time() < deadline:
+        recent = memory.get_recent_tasks(5)
+        if any(t.get("task_id") == task_id for t in recent):
+            break
+        await asyncio.sleep(0.5)
+    else:
+        print("⏱️ Task timed out after 120s")
+
+    # Show result
+    tasks = memory.get_recent_tasks(5)
+    task = next((t for t in tasks if t.get("task_id") == task_id), None)
+    if task:
+        success = task.get("success", False)
+        print(f"\n{'✅' if success else '❌'} Task: {task.get('request')}")
+        result = task.get("result", {})
+        if result:
+            print(f"Steps: {result.get('succeeded', 0)}/{result.get('total_steps', 0)}")
+            for r in result.get("results", []):
+                status = "✅" if r.get("success") else "❌"
+                err = r.get("error", "")
+                print(f"  {status} {r.get('action')}" + (f": {err[:100]}" if err else ""))
+        else:
+            print(f"Error: {task.get('error', 'unknown')}")
+    else:
+        print("⚠️ Task not found in history")
+
     await agent.stop()
 
 

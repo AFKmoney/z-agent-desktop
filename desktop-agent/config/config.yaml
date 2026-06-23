@@ -23,24 +23,33 @@ zai:
   # Get your API key at https://z.ai/
   api_key: "${ZAI_API_KEY}"
   base_url: "https://api.z.ai/api/paas/v4"
-  
+
+  # ----- ACTIVE MODEL ROUTING -----
+  # Available models confirmed in API: glm-4.6, glm-4.5, glm-4v,
+  # glm-4-plus, glm-5.1, glm-5.2
+  #
+  # To switch to GLM-5.x, just change the values below.
+  # Recommended GLM-5.x setup (uncomment to enable):
+  #
+  # models:
+  #   planner: "glm-5.1"     # Most capable — complex multi-step reasoning
+  #   vision: "glm-4v"        # Keep 4V for vision (no 5V yet)
+  #   executor: "glm-5.2"    # Fast next-gen executor
+  #
   models:
     # Primary planner - reasoning and decomposition
     planner: "glm-4.6"
-    # Vision model - screen understanding
+    # Vision model - screen understanding (no GLM-5V yet)
     vision: "glm-4v"
     # Fast executor - simple actions
     executor: "glm-4.5"
-    # Next-gen models (uncomment when available)
-    # planner: "glm-5.1"
-    # executor: "glm-5.2"
-  
+
   # Temperature per role
   temperature:
     planner: 0.3
     vision: 0.1
     executor: 0.2
-  
+
   max_tokens: 4096
 
 # ============================================================
@@ -76,21 +85,37 @@ screen:
 # ============================================================
 files:
   # Folders the agent can manage
+  # Add your own folders here — the agent will be able to list, organize,
+  # search, move, copy, rename, and delete files inside them.
   watch_folders:
     - "${HOME}/Desktop"
     - "${HOME}/Downloads"
     - "${HOME}/Documents"
-  # Organization rules
+    - "${HOME}/Pictures"
+    # Examples of additional folders you can add:
+    # - "${HOME}/Projects"
+    # - "${HOME}/Music"
+    # - "/shared/team-files"
+    # - "D:/Work"                  # Windows second drive
+    # - "/Volumes/External"        # macOS external drive
+
+  # Organization rules — used by files.organize action.
+  # Customize categories and extensions to match your workflow.
   auto_organize:
-    enabled: false
+    enabled: false                # set true to auto-organize every 24h
     # Patterns: {category: [extensions]}
     rules:
-      Images: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic"]
-      Documents: [".pdf", ".docx", ".doc", ".xlsx", ".pptx", ".txt"]
-      Archives: [".zip", ".tar", ".gz", ".rar", ".7z"]
-      Code: [".py", ".js", ".ts", ".html", ".css", ".json", ".md"]
-      Videos: [".mp4", ".mov", ".avi", ".mkv"]
-      Audio: [".mp3", ".wav", ".flac", ".m4a"]
+      Images: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".svg", ".bmp"]
+      Documents: [".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".txt", ".rtf", ".odt"]
+      Archives: [".zip", ".tar", ".gz", ".rar", ".7z", ".bz2", ".xz"]
+      Code: [".py", ".js", ".ts", ".tsx", ".jsx", ".html", ".css", ".scss",
+             ".json", ".yaml", ".yml", ".toml", ".md", ".rs", ".go", ".java",
+             ".cpp", ".c", ".h", ".sh", ".rb", ".php", ".sql"]
+      Videos: [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".m4v"]
+      Audio: [".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma"]
+      Data: [".csv", ".tsv", ".xml", ".parquet", ".feather"]
+      Design: [".psd", ".ai", ".sketch", ".fig", ".xd", ".indd"]
+      Installers: [".dmg", ".exe", ".msi", ".deb", ".rpm", ".appimage", ".pkg"]
   # Safe delete (move to trash instead of permanent delete)
   safe_delete: true
 

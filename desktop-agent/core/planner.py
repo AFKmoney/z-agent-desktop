@@ -51,6 +51,10 @@ Available action categories:
 - system.notification: send a system notification
 - system.clipboard_get: read clipboard
 - system.clipboard_set: set clipboard
+- slack.send_message: send a Slack message (params: text, channel?, blocks?)
+- slack.list_channels: list Slack channels
+- slack.send_file: upload a file to Slack (params: file_path, channels?, title?)
+- slack.list_messages: list recent messages (params: channel, limit?)
 
 Output format: STRICT JSON, no markdown fences:
 {
