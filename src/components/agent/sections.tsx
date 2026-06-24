@@ -10,7 +10,7 @@ import {
   Lightbulb, Eye, EyeOff, Sparkles, Search, Code, Network,
   Mic, Plug, Radio, MessageSquare, Command, MessageCircle, Users,
   Plus, Trash2, Pin, Loader2, User, Copy, DollarSign, Shield,
-  TrendingUp, BookOpen, Bell, Save, Edit,
+  TrendingUp, BookOpen, Bell, Save, Edit, AlertCircle,
   ListTodo, BarChart3, Settings as SettingsIcon,
 } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
@@ -616,29 +616,60 @@ function ScreenshotTile({ shot }: { shot: { name: string; size: number; modified
 }
 
 // ============================================================
-// SETTINGS SECTION (inline, not modal)
+// SETTINGS SECTION — full env var editor with fallback
 // ============================================================
 
+// Fallback env var schema (used when backend is offline)
+const FALLBACK_VARS: Array<Record<string, unknown>> = [
+  { key: "ZAI_API_KEY", label: "z.ai API Key", description: "Required — get yours at https://z.ai/", category: "llm", required: true, sensitive: true, placeholder: "your-z.ai-api-key", is_set: false, value: "" },
+  { key: "TELEGRAM_BOT_TOKEN", label: "Telegram Bot Token", description: "From @BotFather on Telegram", category: "telegram", required: false, sensitive: true, placeholder: "123456:ABC-DEF...", is_set: false, value: "" },
+  { key: "TELEGRAM_ALLOWED_USER_ID", label: "Telegram User ID", description: "Your Telegram user ID (from @userinfobot)", category: "telegram", required: false, sensitive: false, placeholder: "123456789", is_set: false, value: "" },
+  { key: "EMAIL_USER", label: "Email Address", description: "Your email for IMAP/SMTP", category: "email", required: false, sensitive: false, placeholder: "you@gmail.com", is_set: false, value: "" },
+  { key: "EMAIL_APP_PASSWORD", label: "Email App Password", description: "App password (NOT your real password). Gmail: myaccount.google.com/apppasswords", category: "email", required: false, sensitive: true, placeholder: "aaaa-bbbb-cccc-dddd", is_set: false, value: "" },
+  { key: "OPENAI_API_KEY", label: "OpenAI API Key", description: "https://platform.openai.com/api-keys", category: "llm", required: false, sensitive: true, placeholder: "sk-...", is_set: false, value: "" },
+  { key: "ANTHROPIC_API_KEY", label: "Anthropic API Key", description: "https://console.anthropic.com/", category: "llm", required: false, sensitive: true, placeholder: "sk-ant-...", is_set: false, value: "" },
+  { key: "MISTRAL_API_KEY", label: "Mistral API Key", description: "https://console.mistral.ai/", category: "llm", required: false, sensitive: true, placeholder: "...", is_set: false, value: "" },
+  { key: "NVIDIA_API_KEY", label: "NVIDIA NIM API Key", description: "https://build.nvidia.com/", category: "llm", required: false, sensitive: true, placeholder: "nvapi-...", is_set: false, value: "" },
+  { key: "GROQ_API_KEY", label: "Groq API Key", description: "https://console.groq.com/ — ultra-fast inference", category: "llm", required: false, sensitive: true, placeholder: "gsk_...", is_set: false, value: "" },
+  { key: "DEEPSEEK_API_KEY", label: "DeepSeek API Key", description: "https://platform.deepseek.com/", category: "llm", required: false, sensitive: true, placeholder: "sk-...", is_set: false, value: "" },
+  { key: "TOGETHER_API_KEY", label: "Together AI API Key", description: "https://api.together.xyz/", category: "llm", required: false, sensitive: true, placeholder: "...", is_set: false, value: "" },
+  { key: "FIREWORKS_API_KEY", label: "Fireworks AI API Key", description: "https://fireworks.ai/", category: "llm", required: false, sensitive: true, placeholder: "...", is_set: false, value: "" },
+  { key: "ZDA_USE_SDK", label: "Use z.ai Coding Plan SDK", description: "Set to 'true' to use z-ai-web-dev-sdk via Node sidecar", category: "agent", required: false, sensitive: false, placeholder: "true", is_set: false, value: "" },
+  { key: "SLACK_BOT_TOKEN", label: "Slack Bot Token", description: "https://api.slack.com/apps — for the Slack module", category: "integrations", required: false, sensitive: true, placeholder: "xoxb-...", is_set: false, value: "" },
+];
+
 export function SettingsSection({ lang }: { lang: Lang }) {
-  const [variables, setVariables] = useState<Array<Record<string, unknown>>>([]);
+  const [variables, setVariables] = useState<Array<Record<string, unknown>>>(FALLBACK_VARS);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [showValues, setShowValues] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [backendOnline, setBackendOnline] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
 
   const L2 = (texts: Record<string, string>) => texts[lang] || texts.en;
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const r = await agentApi.envList();
-      setVariables(r.variables || []);
-      const init: Record<string, string> = {};
-      for (const v of r.variables || []) {
-        const vv = v as Record<string, unknown>;
-        init[String(vv.key)] = (vv.is_set && !vv.sensitive) ? String(vv.value) : "";
+      if (r.variables && r.variables.length > 0) {
+        setVariables(r.variables);
+        setBackendOnline(true);
+        const init: Record<string, string> = {};
+        for (const v of r.variables) {
+          const vv = v as Record<string, unknown>;
+          init[String(vv.key)] = (vv.is_set && !vv.sensitive) ? String(vv.value) : "";
+        }
+        setEditValues(init);
+      } else {
+        setBackendOnline(false);
       }
-      setEditValues(init);
-    } catch {}
+    } catch {
+      setBackendOnline(false);
+      // Keep fallback vars
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -669,19 +700,34 @@ export function SettingsSection({ lang }: { lang: Lang }) {
       setSaving(false);
       return;
     }
+    if (!backendOnline) {
+      setSavedMsg(L2({
+        en: "⚠️ Backend offline — start the Python agent (python main.py) to save settings",
+        fr: "⚠️ Backend hors-ligne — démarrez l'agent Python (python main.py) pour sauvegarder",
+        es: "⚠️ Backend desconectado — inicia el agente Python (python main.py) para guardar",
+        de: "⚠️ Backend offline — starten Sie den Python-Agenten (python main.py) zum Speichern",
+        pt: "⚠️ Backend offline — inicie o agente Python (python main.py) para salvar",
+      }));
+      setSaving(false);
+      return;
+    }
     try {
       const result = await agentApi.envBatchSet(updates);
       if (result.success) {
         setSavedMsg(L2({ en: `✅ ${result.count} variables updated. Restart the agent.`, fr: `✅ ${result.count} variables mises à jour. Redémarrez l'agent.`, es: `✅ ${result.count} variables actualizadas. Reinicia el agente.`, de: `✅ ${result.count} Variablen aktualisiert. Agent neu starten.`, pt: `✅ ${result.count} variáveis atualizadas. Reinicie o agente.` }));
         setTimeout(load, 500);
       } else {
-        setSavedMsg("❌ Error");
+        setSavedMsg("❌ Error saving");
       }
-    } catch { setSavedMsg("❌ Error"); }
+    } catch { setSavedMsg("❌ Backend unreachable"); }
     setSaving(false);
   };
 
   const clearVar = async (key: string) => {
+    if (!backendOnline) {
+      setEditValues(prev => ({ ...prev, [key]: "" }));
+      return;
+    }
     try {
       await agentApi.envDelete(key);
       setEditValues(prev => ({ ...prev, [key]: "" }));
@@ -691,6 +737,10 @@ export function SettingsSection({ lang }: { lang: Lang }) {
   };
 
   const testVar = async (key: string) => {
+    if (!backendOnline) {
+      setSavedMsg(L2({ en: "⚠️ Backend offline — cannot test keys", fr: "⚠️ Backend hors-ligne — impossible de tester les clés", es: "⚠️ Backend desconectado — no se pueden probar las claves", de: "⚠️ Backend offline — Schlüssel können nicht getestet werden", pt: "⚠️ Backend offline — não é possível testar as chaves" }));
+      return;
+    }
     try {
       const result = await agentApi.envTest(key);
       setSavedMsg(result.success
@@ -713,6 +763,7 @@ export function SettingsSection({ lang }: { lang: Lang }) {
     agent: { en: "Agent Settings", fr: "Paramètres Agent", es: "Ajustes del Agente", de: "Agent-Einstellungen", pt: "Configurações do Agente" },
     integrations: { en: "Integrations", fr: "Intégrations", es: "Integraciones", de: "Integrationen", pt: "Integrações" },
   };
+  const catOrder = ["llm", "telegram", "email", "agent", "integrations"];
 
   const dirty = variables.some(v => {
     const vv = v as Record<string, unknown>;
@@ -723,6 +774,8 @@ export function SettingsSection({ lang }: { lang: Lang }) {
     return editVal !== currentVal;
   });
 
+  const setCount = variables.filter(v => Boolean((v as Record<string, unknown>).is_set)).length;
+
   return (
     <div className="max-w-3xl mx-auto">
       <SectionHeader
@@ -730,21 +783,56 @@ export function SettingsSection({ lang }: { lang: Lang }) {
         subtitle={L2({ en: "Configure API keys and tokens", fr: "Configurez les clés API et tokens", es: "Configura claves API y tokens", de: "API-Schlüssel und Tokens konfigurieren", pt: "Configure chaves de API e tokens" })}
         icon={SettingsIcon}
         lang={lang}
+        actions={
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {setCount}/{variables.length} {L2({ en: "configured", fr: "configurées", es: "configuradas", de: "konfiguriert", pt: "configuradas" })}
+            </span>
+            <span className={cn("w-2 h-2 rounded-full", backendOnline ? "bg-emerald-500" : "bg-red-500")} title={backendOnline ? "Backend online" : "Backend offline"} />
+          </div>
+        }
       />
 
+      {/* Backend status banner */}
+      {!backendOnline && !loading && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">
+              {L2({ en: "Backend offline", fr: "Backend hors-ligne", es: "Backend desconectado", de: "Backend offline", pt: "Backend offline" })}
+            </p>
+            <p className="text-xs text-amber-400/70 mt-0.5">
+              {L2({
+                en: "Start the Python agent to save and test API keys: python main.py",
+                fr: "Démarrez l'agent Python pour sauvegarder et tester les clés API : python main.py",
+                es: "Inicia el agente Python para guardar y probar las claves API: python main.py",
+                de: "Starten Sie den Python-Agenten um API-Schlüssel zu speichern und testen: python main.py",
+                pt: "Inicie o agente Python para salvar e testar chaves de API: python main.py",
+              })}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+        </div>
+      )}
+
       {savedMsg && (
-        <div className={cn("mb-4 px-4 py-2 rounded-lg text-sm", savedMsg.startsWith("✅") ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+        <div className={cn("mb-4 px-4 py-2 rounded-lg text-sm", savedMsg.startsWith("✅") ? "bg-emerald-500/10 text-emerald-400" : savedMsg.startsWith("⚠️") ? "bg-amber-500/10 text-amber-400" : "bg-red-500/10 text-red-400")}>
           {savedMsg}
         </div>
       )}
 
-      {Object.entries(grouped).map(([cat, vars]) => (
+      {!loading && catOrder.filter(cat => grouped[cat]).map(cat => (
         <GlassCard key={cat} className="p-4 mb-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
             {catLabels[cat]?.[lang] || cat}
           </h3>
           <div className="space-y-3">
-            {vars.map((v) => {
+            {grouped[cat].map((v) => {
               const vv = v as Record<string, unknown>;
               const key = String(vv.key);
               const isSet = Boolean(vv.is_set);
@@ -752,33 +840,36 @@ export function SettingsSection({ lang }: { lang: Lang }) {
               const isShown = showValues[key];
               const editVal = editValues[key] || "";
               return (
-                <div key={key} className={cn("rounded-lg p-3 border", isSet ? "border-emerald-500/20 bg-emerald-500/5" : "border-border/50", vv.required && !isSet && "border-amber-500/40")}>
+                <div key={key} className={cn("rounded-lg p-3 border transition-all", isSet ? "border-emerald-500/20 bg-emerald-500/5" : "border-border/50", vv.required && !isSet && "border-amber-500/40 bg-amber-500/5", editVal && "border-primary/30")}>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-medium">{String(vv.label)}</span>
-                    {isSet && <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono">✓</span>}
-                    {vv.required && !isSet && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono">{L2({ en: "Required", fr: "Requis", es: "Requerido", de: "Erforderlich", pt: "Obrigatório" })}</span>}
+                    {isSet && <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono">✓ SET</span>}
+                    {vv.required && !isSet && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono uppercase">{L2({ en: "Required", fr: "Requis", es: "Requerido", de: "Erforderlich", pt: "Obrigatório" })}</span>}
+                    {isSensitive && <span className="text-[9px] text-muted-foreground">🔒</span>}
                   </div>
                   <p className="text-[10px] text-muted-foreground mb-2">{String(vv.description)}</p>
+                  <p className="text-[9px] text-muted-foreground/60 font-mono mb-2">{key}</p>
                   <div className="flex gap-2">
                     <input
                       type={isSensitive && !isShown ? "password" : "text"}
-                      placeholder={isSet && isSensitive ? "••••••••" : String(vv.placeholder || "")}
+                      placeholder={isSet && isSensitive ? "•••••••• (enter new to change)" : String(vv.placeholder || "")}
                       value={editVal}
                       onChange={e => setEditValues(prev => ({ ...prev, [key]: e.target.value }))}
                       className="flex-1 bg-background/50 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none border border-border/50 focus:border-primary/50"
                     />
                     {isSensitive && (
-                      <button onClick={() => setShowValues(prev => ({ ...prev, [key]: !prev[key] }))} className="px-2 py-1.5 rounded-md bg-muted/40 text-muted-foreground hover:text-foreground">
+                      <button onClick={() => setShowValues(prev => ({ ...prev, [key]: !prev[key] }))} className="px-2 py-1.5 rounded-md bg-muted/40 text-muted-foreground hover:text-foreground transition-colors" title={L2({ en: "Show/hide", fr: "Afficher/masquer", es: "Mostrar/ocultar", de: "Zeigen/verbergen", pt: "Mostrar/ocultar" })}>
                         {isShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
                     )}
                     {isSet && key.includes("API_KEY") && (
-                      <button onClick={() => testVar(key)} className="px-2 py-1.5 rounded-md text-[10px] bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/25">
+                      <button onClick={() => testVar(key)} className="px-2 py-1.5 rounded-md text-[10px] bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/25 transition-all flex items-center gap-1" title={L2({ en: "Test connection", fr: "Tester la connexion", es: "Probar conexión", de: "Verbindung testen", pt: "Testar conexão" })}>
                         <Zap className="w-3 h-3" />
+                        {L2({ en: "Test", fr: "Test", es: "Probar", de: "Test", pt: "Testar" })}
                       </button>
                     )}
                     {isSet && (
-                      <button onClick={() => clearVar(key)} className="px-2 py-1.5 rounded-md bg-muted/40 text-muted-foreground hover:bg-red-500/20 hover:text-red-400">
+                      <button onClick={() => clearVar(key)} className="px-2 py-1.5 rounded-md bg-muted/40 text-muted-foreground hover:bg-red-500/20 hover:text-red-400 transition-all" title={L2({ en: "Clear", fr: "Supprimer", es: "Eliminar", de: "Löschen", pt: "Remover" })}>
                         <Trash2 className="w-3 h-3" />
                       </button>
                     )}
@@ -790,16 +881,26 @@ export function SettingsSection({ lang }: { lang: Lang }) {
         </GlassCard>
       ))}
 
-      <div className="flex justify-end gap-2">
-        <Button size="sm" variant="ghost" onClick={load}>
-          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-          {L2({ en: "Refresh", fr: "Actualiser", es: "Actualizar", de: "Aktualisieren", pt: "Atualizar" })}
-        </Button>
-        <Button size="sm" onClick={save} disabled={saving || !dirty} className="gap-1.5">
-          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-          {L2({ en: "Save", fr: "Sauvegarder", es: "Guardar", de: "Speichern", pt: "Salvar" })}
-        </Button>
-      </div>
+      {!loading && (
+        <div className="flex justify-between items-center">
+          <div className="text-[10px] text-muted-foreground">
+            {backendOnline
+              ? L2({ en: "Changes saved to .env file. Restart agent to apply.", fr: "Modifications sauvegardées dans .env. Redémarrez l'agent.", es: "Cambios guardados en .env. Reinicia el agente.", de: "Änderungen in .env gespeichert. Agent neu starten.", pt: "Alterações salvas em .env. Reinicie o agente." })
+              : L2({ en: "Read-only mode (backend offline)", fr: "Mode lecture seule (backend hors-ligne)", es: "Modo solo lectura (backend desconectado)", de: "Schreibgeschützt (Backend offline)", pt: "Modo somente leitura (backend offline)" })
+            }
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" onClick={load} disabled={loading}>
+              <RefreshCw className={cn("w-3.5 h-3.5 mr-1.5", loading && "animate-spin")} />
+              {L2({ en: "Refresh", fr: "Actualiser", es: "Actualizar", de: "Aktualisieren", pt: "Atualizar" })}
+            </Button>
+            <Button size="sm" onClick={save} disabled={saving || !dirty} className="gap-1.5">
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              {L2({ en: "Save", fr: "Sauvegarder", es: "Guardar", de: "Speichern", pt: "Salvar" })}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
