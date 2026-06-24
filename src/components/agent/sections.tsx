@@ -7,11 +7,11 @@ import {
   Terminal, Image as ImageIcon, Brain, Cpu, Clock, Zap,
   ChevronRight, Circle, CheckCircle2, XCircle,
   Camera, FileText, Mail, Calendar, Globe, Monitor, MonitorSmartphone,
-  Lightbulb, Eye, Sparkles, Search, Code, Network,
+  Lightbulb, Eye, EyeOff, Sparkles, Search, Code, Network,
   Mic, Plug, Radio, MessageSquare, Command, MessageCircle, Users,
   Plus, Trash2, Pin, Loader2, User, Copy, DollarSign, Shield,
   TrendingUp, BookOpen, Bell, Save, Edit,
-  ListTodo, BarChart3,
+  ListTodo, BarChart3, Settings as SettingsIcon,
 } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi, type TaskRecord } from "@/lib/agent-api";
@@ -612,5 +612,656 @@ function ScreenshotTile({ shot }: { shot: { name: string; size: number; modified
         </div>
       </div>
     </motion.div>
+  );
+}
+
+// ============================================================
+// SETTINGS SECTION (inline, not modal)
+// ============================================================
+
+export function SettingsSection({ lang }: { lang: Lang }) {
+  const [variables, setVariables] = useState<Array<Record<string, unknown>>>([]);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [showValues, setShowValues] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState("");
+
+  const L2 = (texts: Record<string, string>) => texts[lang] || texts.en;
+
+  const load = useCallback(async () => {
+    try {
+      const r = await agentApi.envList();
+      setVariables(r.variables || []);
+      const init: Record<string, string> = {};
+      for (const v of r.variables || []) {
+        const vv = v as Record<string, unknown>;
+        init[String(vv.key)] = (vv.is_set && !vv.sensitive) ? String(vv.value) : "";
+      }
+      setEditValues(init);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const doLoad = async () => { await load(); if (cancelled) return; };
+    doLoad();
+    return () => { cancelled = true; };
+  }, [load]);
+
+  const save = async () => {
+    setSaving(true);
+    const updates: Record<string, string> = {};
+    for (const v of variables) {
+      const vv = v as Record<string, unknown>;
+      const key = String(vv.key);
+      const editVal = editValues[key] || "";
+      const isSet = Boolean(vv.is_set);
+      const isSensitive = Boolean(vv.sensitive);
+      if (isSensitive && isSet) {
+        if (editVal.length > 0) updates[key] = editVal;
+      } else {
+        const currentVal = isSet ? String(vv.value) : "";
+        if (editVal !== currentVal && editVal) updates[key] = editVal;
+      }
+    }
+    if (Object.keys(updates).length === 0) {
+      setSavedMsg(L2({ en: "No changes", fr: "Aucun changement", es: "Sin cambios", de: "Keine Änderungen", pt: "Sem alterações" }));
+      setSaving(false);
+      return;
+    }
+    try {
+      const result = await agentApi.envBatchSet(updates);
+      if (result.success) {
+        setSavedMsg(L2({ en: `✅ ${result.count} variables updated. Restart the agent.`, fr: `✅ ${result.count} variables mises à jour. Redémarrez l'agent.`, es: `✅ ${result.count} variables actualizadas. Reinicia el agente.`, de: `✅ ${result.count} Variablen aktualisiert. Agent neu starten.`, pt: `✅ ${result.count} variáveis atualizadas. Reinicie o agente.` }));
+        setTimeout(load, 500);
+      } else {
+        setSavedMsg("❌ Error");
+      }
+    } catch { setSavedMsg("❌ Error"); }
+    setSaving(false);
+  };
+
+  const clearVar = async (key: string) => {
+    try {
+      await agentApi.envDelete(key);
+      setEditValues(prev => ({ ...prev, [key]: "" }));
+      setSavedMsg(L2({ en: `✅ ${key} cleared. Restart the agent.`, fr: `✅ ${key} supprimé. Redémarrez l'agent.`, es: `✅ ${key} eliminado. Reinicia el agente.`, de: `✅ ${key} gelöscht. Agent neu starten.`, pt: `✅ ${key} removido. Reinicie o agente.` }));
+      setTimeout(load, 500);
+    } catch {}
+  };
+
+  const testVar = async (key: string) => {
+    try {
+      const result = await agentApi.envTest(key);
+      setSavedMsg(result.success
+        ? `✅ ${String(result.provider)}: ${String(result.response || "OK")}`
+        : `❌ ${String(result.error || "Failed")}`);
+    } catch (e) { setSavedMsg(`❌ ${e}`); }
+  };
+
+  // Group by category
+  const grouped: Record<string, Array<Record<string, unknown>>> = {};
+  for (const v of variables) {
+    const cat = String((v as Record<string, unknown>).category || "other");
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(v);
+  }
+  const catLabels: Record<string, Record<string, string>> = {
+    llm: { en: "LLM Providers", fr: "Fournisseurs LLM", es: "Proveedores LLM", de: "LLM-Anbieter", pt: "Provedores LLM" },
+    telegram: { en: "Telegram", fr: "Telegram", es: "Telegram", de: "Telegram", pt: "Telegram" },
+    email: { en: "Email", fr: "Email", es: "Correo", de: "E-Mail", pt: "Email" },
+    agent: { en: "Agent Settings", fr: "Paramètres Agent", es: "Ajustes del Agente", de: "Agent-Einstellungen", pt: "Configurações do Agente" },
+    integrations: { en: "Integrations", fr: "Intégrations", es: "Integraciones", de: "Integrationen", pt: "Integrações" },
+  };
+
+  const dirty = variables.some(v => {
+    const vv = v as Record<string, unknown>;
+    const key = String(vv.key);
+    const editVal = editValues[key] || "";
+    if (vv.sensitive && vv.is_set) return editVal.length > 0;
+    const currentVal = vv.is_set ? String(vv.value) : "";
+    return editVal !== currentVal;
+  });
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <SectionHeader
+        title={L2({ en: "Settings", fr: "Paramètres", es: "Ajustes", de: "Einstellungen", pt: "Configurações" })}
+        subtitle={L2({ en: "Configure API keys and tokens", fr: "Configurez les clés API et tokens", es: "Configura claves API y tokens", de: "API-Schlüssel und Tokens konfigurieren", pt: "Configure chaves de API e tokens" })}
+        icon={SettingsIcon}
+        lang={lang}
+      />
+
+      {savedMsg && (
+        <div className={cn("mb-4 px-4 py-2 rounded-lg text-sm", savedMsg.startsWith("✅") ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400")}>
+          {savedMsg}
+        </div>
+      )}
+
+      {Object.entries(grouped).map(([cat, vars]) => (
+        <GlassCard key={cat} className="p-4 mb-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+            {catLabels[cat]?.[lang] || cat}
+          </h3>
+          <div className="space-y-3">
+            {vars.map((v) => {
+              const vv = v as Record<string, unknown>;
+              const key = String(vv.key);
+              const isSet = Boolean(vv.is_set);
+              const isSensitive = Boolean(vv.sensitive);
+              const isShown = showValues[key];
+              const editVal = editValues[key] || "";
+              return (
+                <div key={key} className={cn("rounded-lg p-3 border", isSet ? "border-emerald-500/20 bg-emerald-500/5" : "border-border/50", vv.required && !isSet && "border-amber-500/40")}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-medium">{String(vv.label)}</span>
+                    {isSet && <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono">✓</span>}
+                    {vv.required && !isSet && <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 font-mono">{L2({ en: "Required", fr: "Requis", es: "Requerido", de: "Erforderlich", pt: "Obrigatório" })}</span>}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mb-2">{String(vv.description)}</p>
+                  <div className="flex gap-2">
+                    <input
+                      type={isSensitive && !isShown ? "password" : "text"}
+                      placeholder={isSet && isSensitive ? "••••••••" : String(vv.placeholder || "")}
+                      value={editVal}
+                      onChange={e => setEditValues(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="flex-1 bg-background/50 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none border border-border/50 focus:border-primary/50"
+                    />
+                    {isSensitive && (
+                      <button onClick={() => setShowValues(prev => ({ ...prev, [key]: !prev[key] }))} className="px-2 py-1.5 rounded-md bg-muted/40 text-muted-foreground hover:text-foreground">
+                        {isShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+                    {isSet && key.includes("API_KEY") && (
+                      <button onClick={() => testVar(key)} className="px-2 py-1.5 rounded-md text-[10px] bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/25">
+                        <Zap className="w-3 h-3" />
+                      </button>
+                    )}
+                    {isSet && (
+                      <button onClick={() => clearVar(key)} className="px-2 py-1.5 rounded-md bg-muted/40 text-muted-foreground hover:bg-red-500/20 hover:text-red-400">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </GlassCard>
+      ))}
+
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={load}>
+          <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+          {L2({ en: "Refresh", fr: "Actualiser", es: "Actualizar", de: "Aktualisieren", pt: "Atualizar" })}
+        </Button>
+        <Button size="sm" onClick={save} disabled={saving || !dirty} className="gap-1.5">
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          {L2({ en: "Save", fr: "Sauvegarder", es: "Guardar", de: "Speichern", pt: "Salvar" })}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// CHAT SECTION (inline, not modal)
+// ============================================================
+
+export function ChatSection({ lang }: { lang: Lang }) {
+  const [conversations, setConversations] = useState<Array<Record<string, unknown>>>([]);
+  const [activeConv, setActiveConv] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Array<Record<string, unknown>>>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [agents, setAgents] = useState<Array<Record<string, unknown>>>([]);
+  const [selectedAgent, setSelectedAgent] = useState<string | undefined>(undefined);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const L2 = (t: Record<string, string>) => t[lang] || t.en;
+
+  const loadConvs = useCallback(async () => {
+    try {
+      const r = await agentApi.chatList();
+      setConversations(r.conversations || []);
+    } catch {}
+  }, []);
+
+  const loadAgents = useCallback(async () => {
+    try {
+      const r = await agentApi.agentsList();
+      setAgents(r.agents || []);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    loadConvs();
+    loadAgents();
+    const i = setInterval(loadConvs, 10000);
+    return () => clearInterval(i);
+  }, [loadConvs, loadAgents]);
+
+  useEffect(() => {
+    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const openConv = async (convId: string) => {
+    try {
+      const r = await agentApi.chatGet(convId);
+      setActiveConv(convId);
+      setMessages((r as Record<string, unknown>).messages as Array<Record<string, unknown>> || []);
+    } catch {}
+  };
+
+  const newConv = async () => {
+    try {
+      const r = await agentApi.chatCreate({ agent_id: selectedAgent });
+      const conv = r as Record<string, unknown>;
+      setActiveConv(String(conv.id));
+      setMessages([]);
+      loadConvs();
+    } catch {}
+  };
+
+  const deleteConv = async (convId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await agentApi.chatDelete(convId);
+      if (activeConv === convId) { setActiveConv(null); setMessages([]); }
+      loadConvs();
+    } catch {}
+  };
+
+  const send = async () => {
+    if (!input.trim() || !activeConv) return;
+    const text = input;
+    setInput("");
+    setSending(true);
+    setMessages(prev => [...prev, { id: `u_${Date.now()}`, role: "user", content: text, datetime: new Date().toISOString() }]);
+    try {
+      const r = await agentApi.chatSend(activeConv, text);
+      setMessages(prev => [...prev, { id: `a_${Date.now()}`, role: "assistant", content: r.response || r.error || "Error", datetime: new Date().toISOString(), metadata: r.metadata }]);
+      loadConvs();
+    } catch (e) {
+      setMessages(prev => [...prev, { id: `e_${Date.now()}`, role: "assistant", content: `❌ ${e}`, datetime: new Date().toISOString() }]);
+    }
+    setSending(false);
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      <SectionHeader
+        title={L2({ en: "Chat", fr: "Chat", es: "Chat", de: "Chat", pt: "Chat" })}
+        subtitle={L2({ en: "Conversations with custom agents", fr: "Conversations avec agents personnalisés", es: "Conversaciones con agentes personalizados", de: "Konversationen mit benutzerdefinierten Agenten", pt: "Conversas com agentes personalizados" })}
+        icon={MessageCircle}
+        lang={lang}
+        actions={
+          <select
+            value={selectedAgent || ""}
+            onChange={e => setSelectedAgent(e.target.value || undefined)}
+            className="bg-background/50 rounded-md px-2 py-1.5 text-xs outline-none border border-border/50"
+          >
+            <option value="">{L2({ en: "Default agent", fr: "Agent par défaut", es: "Agente por defecto", de: "Standard-Agent", pt: "Agente padrão" })}</option>
+            {agents.map(a => <option key={String(a.id)} value={String(a.id)}>{String(a.emoji)} {String(a.name)}</option>)}
+          </select>
+        }
+      />
+
+      <div className="flex gap-4" style={{ height: "calc(100vh - 220px)" }}>
+        {/* Conversation list */}
+        <div className="w-64 flex-shrink-0 flex flex-col">
+          <button onClick={newConv} className="w-full flex items-center justify-center gap-2 px-3 py-2 mb-2 rounded-lg bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 transition-all text-sm font-medium">
+            <Plus className="w-4 h-4" />
+            {L2({ en: "New chat", fr: "Nouveau chat", es: "Nuevo chat", de: "Neuer Chat", pt: "Novo chat" })}
+          </button>
+          <div className="flex-1 overflow-y-auto space-y-0.5">
+            {conversations.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">{L2({ en: "No conversations", fr: "Aucune conversation", es: "Sin conversaciones", de: "Keine Konversationen", pt: "Sem conversas" })}</p>
+            ) : (
+              conversations.map(conv => (
+                <div key={String(conv.id)} onClick={() => openConv(String(conv.id))} className={cn("group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-all", activeConv === conv.id ? "bg-primary/15 border border-primary/30" : "hover:bg-accent/20")}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs truncate">{String(conv.title || L2({ en: "Untitled", fr: "Sans titre", es: "Sin título", de: "Unbenannt", pt: "Sem título" }))}</p>
+                    <p className="text-[9px] text-muted-foreground">{Number(conv.message_count)} {L2({ en: "messages", fr: "messages", es: "mensajes", de: "Nachrichten", pt: "mensagens" })}</p>
+                  </div>
+                  <button onClick={(e) => deleteConv(String(conv.id), e)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 flex flex-col glass rounded-xl overflow-hidden">
+          {activeConv ? (
+            <>
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <Bot className="w-12 h-12 mb-3 opacity-30" />
+                    <p className="text-sm">{L2({ en: "Start the conversation", fr: "Démarrez la conversation", es: "Inicia la conversación", de: "Konversation starten", pt: "Inicie a conversa" })}</p>
+                  </div>
+                ) : (
+                  messages.map((msg, i) => (
+                    <motion.div key={String(msg.id || i)} className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "flex-row")} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+                      <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0", msg.role === "user" ? "bg-cyan-500/15 border border-cyan-500/30" : "bg-primary/15 border border-primary/30")}>
+                        {msg.role === "user" ? <User className="w-3.5 h-3.5 text-cyan-400" /> : <Bot className="w-3.5 h-3.5 text-primary" />}
+                      </div>
+                      <div className={cn("max-w-[75%] rounded-xl px-3 py-2", msg.role === "user" ? "bg-cyan-500/10 border border-cyan-500/20" : "glass")}>
+                        <p className="text-sm whitespace-pre-wrap break-words">{String(msg.content)}</p>
+                      </div>
+                    </motion.div>
+                  ))
+                )}
+                {sending && (
+                  <div className="flex gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-primary/15 border border-primary/30 flex items-center justify-center">
+                      <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+              <div className="p-3 border-t border-border/50">
+                <div className="flex gap-2 items-end">
+                  <textarea
+                    placeholder={L2({ en: "Type your message...", fr: "Tapez votre message...", es: "Escribe tu mensaje...", de: "Nachricht eingeben...", pt: "Digite sua mensagem..." })}
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                    rows={1}
+                    className="flex-1 glass rounded-xl px-3 py-2 text-sm outline-none resize-none focus:border-primary/50"
+                  />
+                  <button onClick={send} disabled={!input.trim() || sending} className="w-9 h-9 rounded-xl bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 disabled:opacity-30 flex items-center justify-center flex-shrink-0">
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+              <Bot className="w-16 h-16 mb-4 opacity-20" />
+              <p className="text-sm">{L2({ en: "Select or create a conversation", fr: "Sélectionnez ou créez une conversation", es: "Selecciona o crea una conversación", de: "Konversation auswählen oder erstellen", pt: "Selecione ou crie uma conversa" })}</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// AGENTS SECTION (inline, not modal)
+// ============================================================
+
+const EMOJI_OPTIONS = ["🤖", "📧", "🔍", "📚", "📁", "⚙️", "🌐", "💻", "🎨", "📊", "🔬", "🎬", "🎮", "💡", "🚀", "⚡"];
+const COLOR_OPTIONS = ["#10B981", "#06B6D4", "#8B5CF6", "#EC4899", "#F59E0B", "#3B82F6", "#EF4444", "#14B8A6", "#F97316", "#A855F7", "#22C55E", "#6366F1"];
+
+const ACTION_PREFIXES = [
+  { id: "screen.", label: "Screen" },
+  { id: "files.", label: "Files" },
+  { id: "email.", label: "Email" },
+  { id: "calendar.", label: "Calendar" },
+  { id: "browser.", label: "Browser" },
+  { id: "system.", label: "System" },
+  { id: "windows.", label: "Windows" },
+  { id: "code.", label: "Code" },
+  { id: "web.", label: "Web" },
+  { id: "voice.", label: "Voice" },
+  { id: "vision.", label: "Vision" },
+  { id: "kb.", label: "Knowledge" },
+  { id: "plugin.", label: "Plugin" },
+  { id: "mcp.", label: "MCP" },
+  { id: "slack.", label: "Slack" },
+];
+
+export function AgentsSection({ lang }: { lang: Lang }) {
+  const [agents, setAgents] = useState<Array<Record<string, unknown>>>([]);
+  const [showEditor, setShowEditor] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    name: "", description: "", system_prompt: "",
+    provider: "zai", model: "", temperature: 0.3, max_tokens: 4096,
+    allowed_actions: [] as string[], blocked_actions: [] as string[],
+    memory_mode: "conversation", autonomy_mode: "full",
+    color: "#10B981", emoji: "🤖",
+  });
+
+  const L2 = (t: Record<string, string>) => t[lang] || t.en;
+
+  const load = useCallback(async () => {
+    try {
+      const r = await agentApi.agentsList();
+      setAgents(r.agents || []);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const doLoad = async () => { await load(); if (cancelled) return; };
+    doLoad();
+    return () => { cancelled = true; };
+  }, [load]);
+
+  const startNew = () => {
+    setForm({ name: "", description: "", system_prompt: "", provider: "zai", model: "", temperature: 0.3, max_tokens: 4096, allowed_actions: [], blocked_actions: [], memory_mode: "conversation", autonomy_mode: "full", color: COLOR_OPTIONS[Math.floor(Math.random() * COLOR_OPTIONS.length)], emoji: "🤖" });
+    setEditingId(null);
+    setShowEditor(true);
+  };
+
+  const startEdit = (agent: Record<string, unknown>) => {
+    setForm({
+      name: String(agent.name || ""), description: String(agent.description || ""),
+      system_prompt: String(agent.system_prompt || ""), provider: String(agent.provider || "zai"),
+      model: String(agent.model || ""), temperature: Number(agent.temperature || 0.3),
+      max_tokens: Number(agent.max_tokens || 4096),
+      allowed_actions: (agent.allowed_actions as string[]) || [],
+      blocked_actions: (agent.blocked_actions as string[]) || [],
+      memory_mode: String(agent.memory_mode || "conversation"),
+      autonomy_mode: String(agent.autonomy_mode || "full"),
+      color: String(agent.color || "#10B981"), emoji: String(agent.emoji || "🤖"),
+    });
+    setEditingId(String(agent.id));
+    setShowEditor(true);
+  };
+
+  const save = async () => {
+    if (!form.name.trim()) return;
+    try {
+      if (editingId) await agentApi.agentsUpdate(editingId, form);
+      else await agentApi.agentsCreate(form);
+      setShowEditor(false);
+      load();
+    } catch {}
+  };
+
+  const remove = async (id: string) => {
+    try { await agentApi.agentsDelete(id); load(); } catch {}
+  };
+
+  const toggleAction = (list: "allowed_actions" | "blocked_actions", prefix: string) => {
+    setForm(prev => {
+      const current = prev[list];
+      return { ...prev, [list]: current.includes(prefix) ? current.filter(a => a !== prefix) : [...current, prefix] };
+    });
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <SectionHeader
+        title={L2({ en: "Custom Agents", fr: "Agents personnalisés", es: "Agentes personalizados", de: "Benutzerdefinierte Agenten", pt: "Agentes personalizados" })}
+        subtitle={L2({ en: "Create and manage specialized agents", fr: "Créer et gérer des agents spécialisés", es: "Crear y gestionar agentes especializados", de: "Spezialisierte Agenten erstellen und verwalten", pt: "Criar e gerenciar agentes especializados" })}
+        icon={Users}
+        lang={lang}
+        actions={
+          !showEditor && (
+            <Button size="sm" onClick={startNew} className="gap-1.5">
+              <Plus className="w-3.5 h-3.5" />
+              {L2({ en: "New", fr: "Nouveau", es: "Nuevo", de: "Neu", pt: "Novo" })}
+            </Button>
+          )
+        }
+      />
+
+      {!showEditor ? (
+        <div className="space-y-2">
+          {agents.length === 0 ? (
+            <GlassCard className="p-8 text-center text-sm text-muted-foreground">
+              {L2({ en: "No agents yet. Create one!", fr: "Aucun agent. Créez-en un !", es: "Sin agentes. ¡Crea uno!", de: "Keine Agenten. Erstelle einen!", pt: "Sem agentes. Crie um!" })}
+            </GlassCard>
+          ) : (
+            agents.map((agent, i) => {
+              const isTemplate = String(agent.id).startsWith("template_");
+              return (
+                <motion.div key={String(agent.id)} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+                  <GlassCard className="p-4 flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: `${String(agent.color)}20`, border: `1px solid ${String(agent.color)}40` }}>
+                      {String(agent.emoji)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate">{String(agent.name)}</span>
+                        {isTemplate && <span className="text-[9px] px-1 py-0.5 rounded bg-muted/40 font-mono uppercase">{L2({ en: "Template", fr: "Modèle", es: "Plantilla", de: "Vorlage", pt: "Modelo" })}</span>}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{String(agent.description || "")}</p>
+                      <div className="flex gap-2 mt-1 text-[9px] text-muted-foreground font-mono">
+                        <span className="text-emerald-400">{(agent.allowed_actions as string[])?.length || 0} allowed</span>
+                        <span className="text-red-400">{(agent.blocked_actions as string[])?.length || 0} blocked</span>
+                        <span>{String(agent.autonomy_mode)}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button onClick={() => startEdit(agent)} className="w-7 h-7 rounded-lg hover:bg-accent/30 flex items-center justify-center text-muted-foreground hover:text-primary">
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      {!isTemplate && (
+                        <button onClick={() => remove(String(agent.id))} className="w-7 h-7 rounded-lg hover:bg-red-500/20 flex items-center justify-center text-muted-foreground hover:text-red-400">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </GlassCard>
+                </motion.div>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <GlassCard className="p-5 space-y-4">
+          {/* Emoji + Color */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">{L2({ en: "Emoji", fr: "Emoji", es: "Emoji", de: "Emoji", pt: "Emoji" })}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {EMOJI_OPTIONS.map(e => (
+                  <button key={e} onClick={() => setForm(p => ({ ...p, emoji: e }))} className={cn("w-8 h-8 rounded-lg flex items-center justify-center text-lg transition-all", form.emoji === e ? "bg-primary/20 border border-primary/40" : "bg-muted/30 hover:bg-muted/50")}>{e}</button>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">{L2({ en: "Color", fr: "Couleur", es: "Color", de: "Farbe", pt: "Cor" })}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {COLOR_OPTIONS.map(c => (
+                  <button key={c} onClick={() => setForm(p => ({ ...p, color: c }))} className={cn("w-8 h-8 rounded-lg transition-all", form.color === c ? "ring-2 ring-offset-2 ring-offset-background" : "")} style={{ background: c, boxShadow: form.color === c ? `0 0 12px ${c}` : "none" }} />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{L2({ en: "Name", fr: "Nom", es: "Nombre", de: "Name", pt: "Nome" })} *</label>
+            <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Email Assistant" className="w-full bg-background/50 rounded-md px-3 py-2 text-sm outline-none border border-border/50 focus:border-primary/50" />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{L2({ en: "Description", fr: "Description", es: "Descripción", de: "Beschreibung", pt: "Descrição" })}</label>
+            <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder={L2({ en: "Manages my emails", fr: "Gère mes emails", es: "Gestiona mis correos", de: "Verwaltet meine E-Mails", pt: "Gerencia meus emails" })} className="w-full bg-background/50 rounded-md px-3 py-2 text-sm outline-none border border-border/50 focus:border-primary/50" />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{L2({ en: "System Prompt (persona)", fr: "Prompt système (persona)", es: "Prompt del sistema (persona)", de: "System-Prompt (Persona)", pt: "Prompt do sistema (persona)" })}</label>
+            <textarea value={form.system_prompt} onChange={e => setForm(p => ({ ...p, system_prompt: e.target.value }))} placeholder="You are a helpful email assistant..." rows={3} className="w-full bg-background/50 rounded-md px-3 py-2 text-sm outline-none border border-border/50 focus:border-primary/50 resize-none" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{L2({ en: "LLM Provider", fr: "Fournisseur LLM", es: "Proveedor LLM", de: "LLM-Anbieter", pt: "Provedor LLM" })}</label>
+              <select value={form.provider} onChange={e => setForm(p => ({ ...p, provider: e.target.value }))} className="w-full bg-background/50 rounded-md px-3 py-2 text-sm outline-none border border-border/50">
+                <option value="zai">z.ai (GLM)</option>
+                <option value="openai">OpenAI (GPT)</option>
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="mistral">Mistral</option>
+                <option value="nvidia">NVIDIA NIM</option>
+                <option value="groq">Groq</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="ollama">Ollama (local)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{L2({ en: "Model (empty = default)", fr: "Modèle (vide = défaut)", es: "Modelo (vacío = default)", de: "Modell (leer = Standard)", pt: "Modelo (vazio = padrão)" })}</label>
+              <input value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} placeholder="glm-4.6" className="w-full bg-background/50 rounded-md px-3 py-2 text-sm font-mono outline-none border border-border/50 focus:border-primary/50" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{L2({ en: "Temperature", fr: "Température", es: "Temperatura", de: "Temperatur", pt: "Temperatura" })}: {form.temperature}</label>
+              <input type="range" min="0" max="1" step="0.1" value={form.temperature} onChange={e => setForm(p => ({ ...p, temperature: Number(e.target.value) }))} className="w-full accent-primary" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{L2({ en: "Max tokens", fr: "Max tokens", es: "Máx tokens", de: "Max Tokens", pt: "Máx tokens" })}</label>
+              <input type="number" value={form.max_tokens} onChange={e => setForm(p => ({ ...p, max_tokens: Number(e.target.value) }))} className="w-full bg-background/50 rounded-md px-3 py-2 text-sm font-mono outline-none border border-border/50 focus:border-primary/50" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{L2({ en: "Memory", fr: "Mémoire", es: "Memoria", de: "Speicher", pt: "Memória" })}</label>
+              <select value={form.memory_mode} onChange={e => setForm(p => ({ ...p, memory_mode: e.target.value }))} className="w-full bg-background/50 rounded-md px-3 py-2 text-sm outline-none border border-border/50">
+                <option value="none">{L2({ en: "None", fr: "Aucune", es: "Ninguna", de: "Keine", pt: "Nenhuma" })}</option>
+                <option value="conversation">{L2({ en: "Conversation", fr: "Conversation", es: "Conversación", de: "Konversation", pt: "Conversa" })}</option>
+                <option value="persistent">{L2({ en: "Persistent", fr: "Persistante", es: "Persistente", de: "Beständig", pt: "Persistente" })}</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">{L2({ en: "Autonomy", fr: "Autonomie", es: "Autonomía", de: "Autonomie", pt: "Autonomia" })}</label>
+              <select value={form.autonomy_mode} onChange={e => setForm(p => ({ ...p, autonomy_mode: e.target.value }))} className="w-full bg-background/50 rounded-md px-3 py-2 text-sm outline-none border border-border/50">
+                <option value="full">{L2({ en: "Full control", fr: "Plein contrôle", es: "Control total", de: "Vollkontrolle", pt: "Controle total" })}</option>
+                <option value="confirmation">{L2({ en: "Confirmation required", fr: "Confirmation requise", es: "Confirmación requerida", de: "Bestätigung erforderlich", pt: "Confirmação necessária" })}</option>
+                <option value="readonly">{L2({ en: "Read only", fr: "Lecture seule", es: "Solo lectura", de: "Nur Lesen", pt: "Somente leitura" })}</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2 block">{L2({ en: "Allowed Actions", fr: "Actions autorisées", es: "Acciones permitidas", de: "Erlaubte Aktionen", pt: "Ações permitidas" })} ({form.allowed_actions.length})</label>
+            <div className="flex flex-wrap gap-1.5">
+              {ACTION_PREFIXES.map(a => (
+                <button key={a.id} onClick={() => toggleAction("allowed_actions", a.id)} className={cn("px-2 py-1 rounded-md text-[10px] border transition-all", form.allowed_actions.includes(a.id) ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40" : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted/50")}>{a.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-red-400 mb-2 block">{L2({ en: "Blocked Actions", fr: "Actions bloquées", es: "Acciones bloqueadas", de: "Blockierte Aktionen", pt: "Ações bloqueadas" })} ({form.blocked_actions.length})</label>
+            <div className="flex flex-wrap gap-1.5">
+              {ACTION_PREFIXES.map(a => (
+                <button key={a.id} onClick={() => toggleAction("blocked_actions", a.id)} className={cn("px-2 py-1 rounded-md text-[10px] border transition-all", form.blocked_actions.includes(a.id) ? "bg-red-500/20 text-red-400 border-red-500/40" : "bg-muted/30 text-muted-foreground border-border/50 hover:bg-muted/50")}>{a.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button size="sm" variant="ghost" onClick={() => setShowEditor(false)}>{L2({ en: "Cancel", fr: "Annuler", es: "Cancelar", de: "Abbrechen", pt: "Cancelar" })}</Button>
+            <Button size="sm" onClick={save} disabled={!form.name.trim()} className="gap-1.5">
+              <Save className="w-3.5 h-3.5" />
+              {editingId ? L2({ en: "Update", fr: "Mettre à jour", es: "Actualizar", de: "Aktualisieren", pt: "Atualizar" }) : L2({ en: "Create", fr: "Créer", es: "Crear", de: "Erstellen", pt: "Criar" })}
+            </Button>
+          </div>
+        </GlassCard>
+      )}
+    </div>
   );
 }
