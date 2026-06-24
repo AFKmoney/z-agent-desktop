@@ -21,10 +21,17 @@ function L(lang: string, texts: Record<string, string>): string {
 }
 
 export default function Dashboard() {
-  const [lang, setLang] = useState<Lang>(() => typeof window !== "undefined" ? detectBrowserLang() : "en");
+  // Always start with "en" to match SSR, then detect in useEffect
+  const [lang, setLang] = useState<Lang>("en");
   const [section, setSection] = useState<SectionId>("overview");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileSidebar, setMobileSidebar] = useState(false);
+
+  // Detect language after hydration to avoid SSR mismatch
+  useEffect(() => {
+    const detected = detectBrowserLang();
+    if (detected !== "en") setLang(detected); // eslint-disable-line react-hooks/set-state-in-effect
+  }, []);
 
   const { status, connected } = useAgent();
   const state = status?.state ?? "stopped";

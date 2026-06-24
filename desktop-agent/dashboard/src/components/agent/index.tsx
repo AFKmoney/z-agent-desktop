@@ -460,31 +460,56 @@ export function CommandPalette({
 }
 
 // ============ Particle Background ============
+// Uses deterministic seed to avoid hydration mismatch (no Math.random during render)
+const PARTICLE_SEED = [
+  { size: 2.1, left: 15.3, top: 22.1, duration: 12.5, delay: 0.3, opacity: 0.15 },
+  { size: 1.8, left: 45.7, top: 67.2, duration: 14.2, delay: 1.1, opacity: 0.22 },
+  { size: 3.0, left: 78.4, top: 12.5, duration: 11.8, delay: 2.0, opacity: 0.18 },
+  { size: 1.5, left: 23.1, top: 88.3, duration: 16.0, delay: 0.7, opacity: 0.12 },
+  { size: 2.5, left: 56.8, top: 34.7, duration: 13.3, delay: 1.5, opacity: 0.28 },
+  { size: 1.2, left: 89.2, top: 56.1, duration: 15.1, delay: 0.5, opacity: 0.16 },
+  { size: 2.8, left: 12.7, top: 45.9, duration: 12.0, delay: 2.3, opacity: 0.20 },
+  { size: 1.9, left: 67.3, top: 78.4, duration: 14.5, delay: 1.8, opacity: 0.14 },
+  { size: 2.3, left: 34.5, top: 15.2, duration: 13.7, delay: 0.9, opacity: 0.25 },
+  { size: 1.6, left: 82.1, top: 89.7, duration: 16.2, delay: 1.3, opacity: 0.17 },
+  { size: 2.0, left: 8.9, top: 62.3, duration: 11.5, delay: 2.5, opacity: 0.19 },
+  { size: 2.7, left: 51.4, top: 23.8, duration: 15.8, delay: 0.4, opacity: 0.13 },
+  { size: 1.4, left: 73.6, top: 71.2, duration: 13.0, delay: 1.7, opacity: 0.24 },
+  { size: 2.2, left: 28.9, top: 54.6, duration: 14.8, delay: 2.1, opacity: 0.15 },
+  { size: 1.7, left: 95.2, top: 38.4, duration: 12.3, delay: 0.8, opacity: 0.21 },
+  { size: 2.9, left: 18.5, top: 81.3, duration: 16.5, delay: 1.9, opacity: 0.11 },
+  { size: 1.3, left: 61.7, top: 7.2, duration: 13.9, delay: 0.6, opacity: 0.26 },
+  { size: 2.4, left: 42.8, top: 93.1, duration: 11.2, delay: 2.7, opacity: 0.18 },
+  { size: 1.8, left: 87.3, top: 48.5, duration: 15.4, delay: 1.0, opacity: 0.14 },
+  { size: 2.6, left: 6.4, top: 29.7, duration: 14.1, delay: 1.4, opacity: 0.23 },
+  { size: 1.5, left: 38.2, top: 76.8, duration: 12.8, delay: 2.2, opacity: 0.16 },
+  { size: 2.1, left: 79.5, top: 5.4, duration: 16.0, delay: 0.2, opacity: 0.19 },
+  { size: 1.9, left: 14.8, top: 68.9, duration: 13.5, delay: 1.6, opacity: 0.13 },
+  { size: 2.5, left: 64.1, top: 41.7, duration: 15.7, delay: 2.4, opacity: 0.25 },
+  { size: 1.6, left: 91.8, top: 84.2, duration: 11.9, delay: 0.1, opacity: 0.17 },
+  { size: 2.3, left: 21.3, top: 13.6, duration: 14.4, delay: 1.2, opacity: 0.22 },
+  { size: 1.4, left: 55.7, top: 59.3, duration: 13.2, delay: 2.6, opacity: 0.15 },
+  { size: 2.8, left: 75.9, top: 25.4, duration: 16.3, delay: 0.5, opacity: 0.20 },
+  { size: 1.7, left: 33.6, top: 86.1, duration: 12.6, delay: 2.0, opacity: 0.12 },
+  { size: 2.0, left: 48.3, top: 50.8, duration: 15.0, delay: 1.1, opacity: 0.18 },
+];
+
 export function ParticleBackground() {
-  const particles = Array.from({ length: 30 }, (_, i) => i);
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
-      {particles.map(i => {
-        const size = Math.random() * 3 + 1;
-        const left = Math.random() * 100;
-        const top = Math.random() * 100;
-        const duration = Math.random() * 10 + 10;
-        const delay = Math.random() * 5;
-        const opacity = Math.random() * 0.3 + 0.1;
-        return (
-          <motion.div
-            key={i}
-            className="absolute rounded-full bg-primary"
-            style={{ width: size, height: size, left: `${left}%`, top: `${top}%`, opacity }}
-            animate={{
-              y: [0, -30, 0],
-              x: [0, 20, 0],
-              opacity: [opacity, opacity * 1.5, opacity],
-            }}
-            transition={{ duration, delay, repeat: Infinity, ease: "easeInOut" }}
-          />
-        );
-      })}
+      {PARTICLE_SEED.map((p, i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full bg-primary"
+          style={{ width: p.size, height: p.size, left: `${p.left}%`, top: `${p.top}%`, opacity: p.opacity }}
+          animate={{
+            y: [0, -30, 0],
+            x: [0, 20, 0],
+            opacity: [p.opacity, p.opacity * 1.5, p.opacity],
+          }}
+          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: "easeInOut" }}
+        />
+      ))}
     </div>
   );
 }
