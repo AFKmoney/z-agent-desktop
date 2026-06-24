@@ -17,7 +17,7 @@ try:
     import psutil
     import pyperclip
     PSUTIL_AVAILABLE = True
-except ImportError:
+except Exception:
     PSUTIL_AVAILABLE = False
     log.warning("psutil/pyperclip not installed - system module limited")
 

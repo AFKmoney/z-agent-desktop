@@ -12,7 +12,7 @@ try:
     import pyautogui
     import mss
     from PIL import Image
-except ImportError:
+except Exception:
     pyautogui = None
     mss = None
     Image = None

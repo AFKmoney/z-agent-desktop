@@ -1227,6 +1227,15 @@ export function ChatSection({ lang }: { lang: Lang }) {
 const EMOJI_OPTIONS = ["🤖", "📧", "🔍", "📚", "📁", "⚙️", "🌐", "💻", "🎨", "📊", "🔬", "🎬", "🎮", "💡", "🚀", "⚡"];
 const COLOR_OPTIONS = ["#10B981", "#06B6D4", "#8B5CF6", "#EC4899", "#F59E0B", "#3B82F6", "#EF4444", "#14B8A6", "#F97316", "#A855F7", "#22C55E", "#6366F1"];
 
+const BUILTIN_AGENTS_FALLBACK = [
+  { emoji: "🤖", name: "General Assistant", description: "General-purpose agent with access to all actions", color: "#10B981" },
+  { emoji: "📧", name: "Email Assistant", description: "Specialized in email management — reads, sorts, drafts replies", color: "#F59E0B" },
+  { emoji: "🔍", name: "Code Reviewer", description: "Reviews code for bugs, security issues, and improvements", color: "#06B6D4" },
+  { emoji: "📚", name: "Research Bot", description: "Deep research using web search and knowledge base", color: "#8B5CF6" },
+  { emoji: "📁", name: "File Organizer", description: "Organizes and cleans up files and folders", color: "#22C55E" },
+  { emoji: "⚙️", name: "System Admin", description: "Manages system processes, apps, and settings", color: "#EF4444" },
+];
+
 const ACTION_PREFIXES = [
   { id: "screen.", label: "Screen" },
   { id: "files.", label: "Files" },

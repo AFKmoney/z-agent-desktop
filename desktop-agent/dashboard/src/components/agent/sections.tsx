@@ -1227,6 +1227,15 @@ export function ChatSection({ lang }: { lang: Lang }) {
 const EMOJI_OPTIONS = ["🤖", "📧", "🔍", "📚", "📁", "⚙️", "🌐", "💻", "🎨", "📊", "🔬", "🎬", "🎮", "💡", "🚀", "⚡"];
 const COLOR_OPTIONS = ["#10B981", "#06B6D4", "#8B5CF6", "#EC4899", "#F59E0B", "#3B82F6", "#EF4444", "#14B8A6", "#F97316", "#A855F7", "#22C55E", "#6366F1"];
 
+const BUILTIN_AGENTS_FALLBACK = [
+  { emoji: "🤖", name: "General Assistant", description: "General-purpose agent with access to all actions", color: "#10B981" },
+  { emoji: "📧", name: "Email Assistant", description: "Specialized in email management — reads, sorts, drafts replies", color: "#F59E0B" },
+  { emoji: "🔍", name: "Code Reviewer", description: "Reviews code for bugs, security issues, and improvements", color: "#06B6D4" },
+  { emoji: "📚", name: "Research Bot", description: "Deep research using web search and knowledge base", color: "#8B5CF6" },
+  { emoji: "📁", name: "File Organizer", description: "Organizes and cleans up files and folders", color: "#22C55E" },
+  { emoji: "⚙️", name: "System Admin", description: "Manages system processes, apps, and settings", color: "#EF4444" },
+];
+
 const ACTION_PREFIXES = [
   { id: "screen.", label: "Screen" },
   { id: "files.", label: "Files" },
@@ -1336,9 +1345,26 @@ export function AgentsSection({ lang }: { lang: Lang }) {
       {!showEditor ? (
         <div className="space-y-2">
           {agents.length === 0 ? (
-            <GlassCard className="p-8 text-center text-sm text-muted-foreground">
-              {L2({ en: "No agents yet. Create one!", fr: "Aucun agent. Créez-en un !", es: "Sin agentes. ¡Crea uno!", de: "Keine Agenten. Erstelle einen!", pt: "Sem agentes. Crie um!" })}
-            </GlassCard>
+            <>
+              <div className="mb-3 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5" />
+                {L2({ en: "Backend offline — showing built-in templates. Start the agent to create custom ones.", fr: "Backend hors-ligne — modèles intégrés affichés. Démarrez l'agent pour en créer.", es: "Backend desconectado — mostrando plantillas. Inicia el agente para crear personalizadas.", de: "Backend offline — integrierte Vorlagen werden angezeigt.", pt: "Backend offline — mostrando modelos integrados." })}
+              </div>
+              {BUILTIN_AGENTS_FALLBACK.map((agent, i) => (
+                <motion.div key={i} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+                  <GlassCard className="p-4 flex items-center gap-3 opacity-80">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ background: `${agent.color}20`, border: `1px solid ${agent.color}40` }}>
+                      {agent.emoji}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium">{agent.name}</span>
+                      <p className="text-xs text-muted-foreground truncate">{agent.description}</p>
+                    </div>
+                    <span className="text-[9px] px-1 py-0.5 rounded bg-muted/40 font-mono uppercase">{L2({ en: "Template", fr: "Modèle", es: "Plantilla", de: "Vorlage", pt: "Modelo" })}</span>
+                  </GlassCard>
+                </motion.div>
+              ))}
+            </>
           ) : (
             agents.map((agent, i) => {
               const isTemplate = String(agent.id).startsWith("template_");

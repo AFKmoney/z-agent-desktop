@@ -20,7 +20,7 @@ try:
     pyautogui.FAILSAFE = True
     pyautogui.PAUSE = 0.05
     PYAUTOGUI_AVAILABLE = True
-except ImportError:
+except Exception:
     PYAUTOGUI_AVAILABLE = False
     log.warning("PyAutoGUI not installed - screen control disabled")
 
