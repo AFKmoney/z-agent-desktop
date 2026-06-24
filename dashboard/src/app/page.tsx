@@ -12,6 +12,7 @@ import {
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi, type TaskRecord } from "@/lib/agent-api";
 import { t, detectBrowserLang, setStoredLang, stateLabel, type Lang } from "@/lib/i18n";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -143,8 +144,7 @@ export default function Dashboard() {
     }
   };
 
-  const toggleLang = () => {
-    const newLang: Lang = lang === "fr" ? "en" : "fr";
+  const handleLanguageChange = (newLang: Lang) => {
     setLang(newLang);
     setStoredLang(newLang);
   };
@@ -173,16 +173,7 @@ export default function Dashboard() {
 
           <div className="flex items-center gap-3">
             {/* Language toggle */}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={toggleLang}
-              className="gap-1.5 font-mono text-xs"
-              title="Switch language"
-            >
-              <Languages className="w-4 h-4" />
-              {lang.toUpperCase()}
-            </Button>
+            <LanguageSelector currentLang={lang} onLanguageChange={handleLanguageChange} />
 
             <div className="flex items-center gap-2 text-xs">
               <Circle

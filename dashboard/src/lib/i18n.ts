@@ -1,4 +1,93 @@
-/**
+export const STRINGS: Record<string, Partial<Record<Lang, string>> & { en: string }> = {
+  // Navigation & General
+  "nav.dashboard": { en: "Dashboard", fr: "Tableau de bord", es: "Panel de control", de: "Dashboard", pt: "Painel" },
+  "nav.settings": { en: "Settings", fr: "Paramètres", es: "Ajustes", de: "Einstellungen", pt: "Configurações" },
+  "nav.logs": { en: "System Logs", fr: "Journaux système", es: "Registros del sistema", de: "Systemprotokolle", pt: "Logs do Sistema" },
+  "nav.docs": { en: "Documentation", fr: "Documentation", es: "Documentación", de: "Dokumentation", pt: "Documentação" },
+  
+  // App Header
+  "app.title": { en: "Z.AGENT", fr: "Z.AGENT", es: "Z.AGENT", de: "Z.AGENT", pt: "Z.AGENT" },
+  "app.subtitle": { en: "Desktop Interface", fr: "Interface de bureau", es: "Interfaz de escritorio", de: "Desktop-Schnittstelle", pt: "Interface de Desktop" },
+  "app.status": { en: "Status", fr: "Statut", es: "Estado", de: "Status", pt: "Status" },
+  "app.connected": { en: "Connected", fr: "Connecté", es: "Conectado", de: "Verbunden", pt: "Conectado" },
+  "app.disconnected": { en: "Disconnected", fr: "Déconnecté", es: "Desconectado", de: "Getrennt", pt: "Desconectado" },
+
+  // States
+  "state.idle": { en: "Idle", fr: "En attente", es: "Inactivo", de: "Im Leerlauf", pt: "Inativo" },
+  "state.planning": { en: "Planning", fr: "Planification", es: "Planificando", de: "Planung", pt: "Planejando" },
+  "state.executing": { en: "Executing", fr: "Exécution", es: "Ejecutando", de: "Ausführen", pt: "Executando" },
+  "state.paused": { en: "Paused", fr: "En pause", es: "Pausado", de: "Pausiert", pt: "Pausado" },
+  "state.error": { en: "Error", fr: "Erreur", es: "Error", de: "Fehler", pt: "Erro" },
+  "state.stopped": { en: "Stopped", fr: "Arrêté", es: "Detenido", de: "Gestoppt", pt: "Parado" },
+
+  // Stats labels
+  "label.state": { en: "State", fr: "État", es: "Estado", de: "Zustand", pt: "Estado" },
+  "label.queue": { en: "Queue", fr: "File", es: "Cola", de: "Warteschlange", pt: "Fila" },
+  "label.uptime": { en: "Uptime", fr: "Uptime", es: "Tiempo de actividad", de: "Betriebszeit", pt: "Tempo de atividade" },
+  "label.logs": { en: "Logs", fr: "Logs", es: "Registros", de: "Protokolle", pt: "Logs" },
+
+  // Memory card
+  "dash.memory": { en: "Memory", fr: "Mémoire", es: "Memoria", de: "Speicher", pt: "Memória" },
+  "dash.facts": { en: "Persistent facts", fr: "Faits persistants", es: "Hechos persistentes", de: "Beständige Fakten", pt: "Fatos persistentes" },
+  "dash.preferences": { en: "Preferences", fr: "Préférences", es: "Preferencias", de: "Präferenzen", pt: "Preferências" },
+  "dash.shortcuts": { en: "Learned shortcuts", fr: "Raccourcis appris", es: "Atajos aprendidos", de: "Gelernte Verknüpfungen", pt: "Atalhos aprendidos" },
+  "dash.recent_tasks": { en: "Recent tasks", fr: "Dernières tâches", es: "Tareas recientes", de: "Aktuelle Aufgaben", pt: "Tarefas recentes" },
+  "misc.no_recent_tasks": { en: "No recent tasks", fr: "Aucune tâche récente", es: "Sin tareas recientes", de: "Keine aktuellen Aufgaben", pt: "Nenhuma tarefa recente" },
+
+  // Task submission
+  "dash.submit_task": { en: "Submit a task", fr: "Soumettre une tâche", es: "Enviar una tarea", de: "Aufgabe einreichen", pt: "Enviar uma tarefa" },
+  "dash.task_placeholder": {
+    en: "What should I do? (e.g. 'Organize my downloads', 'Take a screenshot of the browser')",
+    fr: "Que dois-je faire ? (ex: 'Organise mes téléchargements')",
+    es: "¿Qué debo hacer? (ej. 'Organiza mis descargas', 'Toma una captura del navegador')",
+    de: "Was soll ich tun? (z.B. 'Ordne meine Downloads', 'Mach einen Screenshot')",
+    pt: "O que devo fazer? (ex: 'Organize meus downloads', 'Tire uma captura de tela')"
+  },
+  "action.send": { en: "Send", fr: "Envoyer", es: "Enviar", de: "Senden", pt: "Enviar" },
+  "action.pause": { en: "Pause agent", fr: "Mettre l'agent en pause", es: "Pausar agente", de: "Agent pausieren", pt: "Pausar agente" },
+  "action.resume": { en: "Resume agent", fr: "Reprendre l'agent", es: "Reanudar agente", de: "Agent fortsetzen", pt: "Retomar agente" },
+  "action.stop": { en: "Stop task", fr: "Arrêter la tâche", es: "Detener tarea", de: "Aufgabe stoppen", pt: "Parar tarefa" },
+  "action.clear_queue": { en: "Clear queue", fr: "Vider la file", es: "Vaciar cola", de: "Warteschlange leeren", pt: "Limpar fila" },
+
+  // Perception card
+  "dash.perception": { en: "Perception", fr: "Perception", es: "Percepción", de: "Wahrnehmung", pt: "Percepção" },
+  "dash.no_screenshot": {
+    en: "No visual data.\n\nGLM-4V needs a screenshot to localize elements.",
+    fr: "Aucune donnée visuelle.\n\nGLM-4V a besoin d'une capture pour localiser les éléments.",
+    es: "Sin datos visuales.\n\nGLM-4V necesita una captura para localizar elementos.",
+    de: "Keine visuellen Daten.\n\nGLM-4V benötigt einen Screenshot.",
+    pt: "Sem dados visuais.\n\nGLM-4V precisa de uma captura de tela."
+  },
+  "dash.analyze_screen": { en: "Analyze screen", fr: "Analyser l'écran", es: "Analizar pantalla", de: "Bildschirm analysieren", pt: "Analisar tela" },
+  "dash.capture_now": { en: "Capture now", fr: "Capturer maintenant", es: "Capturar ahora", de: "Jetzt aufnehmen", pt: "Capturar agora" },
+
+  // Tip card
+  "misc.tip_title": { en: "Tip", fr: "Astuce", es: "Consejo", de: "Tipp", pt: "Dica" },
+  "misc.tip_body": {
+    en: "The agent runs in full autonomy. You can send tasks from Telegram when you're away — it plans, executes, and notifies you of the result.",
+    fr: "L'agent fonctionne en autonomie complète. Tu peux lui envoyer des tâches depuis Telegram quand tu es absent — il planifie, exécute et te notifie du résultat.",
+    es: "El agente se ejecuta con total autonomía. Puedes enviar tareas desde Telegram cuando estés fuera; planifica, ejecuta y te notifica el resultado.",
+    de: "Der Agent läuft völlig autonom. Du kannst Aufgaben über Telegram senden — er plant, führt aus und benachrichtigt dich.",
+    pt: "O agente é totalmente autônomo. Você pode enviar tarefas do Telegram quando estiver fora — ele planeja, executa e notifica você."
+  },
+
+  // Plan detail
+  "dash.plan_label": { en: "Plan", fr: "Plan", es: "Plan", de: "Plan", pt: "Plano" },
+  "dash.steps_label": { en: "steps", fr: "étapes", es: "pasos", de: "Schritte", pt: "passos" },
+
+  // Toasts
+  "toast.task_sent": { en: "Task sent", fr: "Tâche envoyée", es: "Tarea enviada", de: "Aufgabe gesendet", pt: "Tarefa enviada" },
+  "toast.command_sent": { en: "Command sent", fr: "Commande envoyée", es: "Comando enviado", de: "Befehl gesendet", pt: "Comando enviado" },
+  "toast.captured": { en: "Screenshot captured", fr: "Capture prise", es: "Captura realizada", de: "Screenshot aufgenommen", pt: "Captura salva" },
+  "toast.error": { en: "Error", fr: "Erreur", es: "Error", de: "Fehler", pt: "Erro" },
+  "toast.agent_offline": {
+    en: "Agent offline or perception unavailable",
+    fr: "Agent hors-ligne ou perception indisponible",
+    es: "Agente desconectado o percepción no disponible",
+    de: "Agent offline oder Wahrnehmung nicht verfügbar",
+    pt: "Agente offline ou percepção indisponível"
+  },
+};/**
  * Dashboard i18n — bilingual EN/FR support.
  * Same string catalog as the Python agent (utils/i18n.py).
  * Language is detected from browser locale, stored in localStorage, switchable via the language toggle.
@@ -110,14 +199,19 @@ const STRINGS: Record<string, Record<Lang, string>> = {
     en: "Agent offline or perception unavailable",
     fr: "Agent hors-ligne ou perception indisponible",
   },
-};
+export type Lang = "en" | "fr" | "es" | "de" | "pt";
 
 export function detectBrowserLang(): Lang {
   if (typeof window === "undefined") return "en";
   const stored = localStorage.getItem("zda-lang");
-  if (stored === "en" || stored === "fr") return stored;
-  const browser = (navigator.language || "en").slice(0, 2).toLowerCase();
-  return browser === "fr" ? "fr" : "en";
+  if (stored === "en" || stored === "fr" || stored === "es" || stored === "de" || stored === "pt") {
+    return stored as Lang;
+  }
+  const browser = navigator.language.split("-")[0].toLowerCase();
+  if (browser === "fr" || browser === "es" || browser === "de" || browser === "pt") {
+    return browser as Lang;
+  }
+  return "en";
 }
 
 export function setStoredLang(lang: Lang) {
@@ -139,12 +233,12 @@ export function t(key: string, lang: Lang, vars?: Record<string, string | number
 }
 
 export const STATE_LABELS: Record<string, Record<Lang, string>> = {
-  idle: { en: "Idle", fr: "En attente" },
-  planning: { en: "Planning", fr: "Planification" },
-  executing: { en: "Executing", fr: "Exécution" },
-  paused: { en: "Paused", fr: "En pause" },
-  error: { en: "Error", fr: "Erreur" },
-  stopped: { en: "Stopped", fr: "Arrêté" },
+  idle: { en: "Idle", fr: "En attente", es: "Inactivo", de: "Im Leerlauf", pt: "Inativo" },
+  planning: { en: "Planning", fr: "Planification", es: "Planificando", de: "Planung", pt: "Planejando" },
+  executing: { en: "Executing", fr: "Exécution", es: "Ejecutando", de: "Ausführen", pt: "Executando" },
+  paused: { en: "Paused", fr: "En pause", es: "Pausado", de: "Pausiert", pt: "Pausado" },
+  error: { en: "Error", fr: "Erreur", es: "Error", de: "Fehler", pt: "Erro" },
+  stopped: { en: "Stopped", fr: "Arrêté", es: "Detenido", de: "Gestoppt", pt: "Parado" },
 };
 
 export function stateLabel(state: string, lang: Lang): string {
