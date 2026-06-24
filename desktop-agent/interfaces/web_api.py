@@ -792,3 +792,77 @@ async def backups_delete(backup_name: str):
     if bm is None:
         raise HTTPException(500, "Not initialized")
     return bm.delete_backup(backup_name)
+
+
+# ============ Environment Variables Manager ============
+
+class EnvVarUpdate(BaseModel):
+    key: str
+    value: str
+
+
+class EnvVarBatchUpdate(BaseModel):
+    updates: Dict[str, str]
+
+
+@app.get("/api/env")
+async def env_list():
+    """List all configurable env vars with metadata. Sensitive values are masked."""
+    from core.env_manager import get_env_manager
+    mgr = get_env_manager()
+    if mgr is None:
+        return {"variables": [], "categories": []}
+    return {
+        "variables": mgr.get_all(include_values=False),
+        "categories": mgr.get_categories(),
+    }
+
+
+@app.get("/api/env/status")
+async def env_status():
+    """Get env configuration status summary."""
+    from core.env_manager import get_env_manager
+    mgr = get_env_manager()
+    if mgr is None:
+        return {}
+    return mgr.get_status()
+
+
+@app.post("/api/env")
+async def env_set(req: EnvVarUpdate):
+    """Set a single env var. Value is stored in .env file."""
+    from core.env_manager import get_env_manager
+    mgr = get_env_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.set_value(req.key, req.value)
+
+
+@app.post("/api/env/batch")
+async def env_batch_set(req: EnvVarBatchUpdate):
+    """Set multiple env vars at once."""
+    from core.env_manager import get_env_manager
+    mgr = get_env_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.set_multiple(req.updates)
+
+
+@app.delete("/api/env/{key}")
+async def env_delete(key: str):
+    """Delete an env var from the .env file."""
+    from core.env_manager import get_env_manager
+    mgr = get_env_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.delete_value(key)
+
+
+@app.post("/api/env/test/{key}")
+async def env_test(key: str):
+    """Test if a configured env var (API key) works."""
+    from core.env_manager import get_env_manager
+    mgr = get_env_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.test_value(key)

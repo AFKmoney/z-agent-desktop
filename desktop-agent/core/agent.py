@@ -166,6 +166,13 @@ class Agent:
             init_backup_manager()
         except Exception as e:
             log.warning(f"Backup manager init failed: {e}")
+
+        # Init env manager (for dashboard settings)
+        try:
+            from core.env_manager import init_env_manager
+            init_env_manager()
+        except Exception as e:
+            log.warning(f"Env manager init failed: {e}")
         
         # Register module handlers
         # Register modules — gracefully skip those whose deps are missing

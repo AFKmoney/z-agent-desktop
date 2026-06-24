@@ -242,4 +242,17 @@ export const agentApi = {
   backupsList: () => agentFetch<{ backups: Array<Record<string, unknown>> }>("/api/backups"),
   backupsDelete: (name: string) =>
     agentFetch<Record<string, unknown>>(`/api/backups/${name}`, { method: "DELETE" }),
+
+  // Environment Variables
+  envList: () =>
+    agentFetch<{ variables: Array<Record<string, unknown>>; categories: Array<Record<string, unknown>> }>("/api/env"),
+  envStatus: () => agentFetch<Record<string, unknown>>("/api/env/status"),
+  envSet: (key: string, value: string) =>
+    agentFetch<Record<string, unknown>>("/api/env", { method: "POST", body: JSON.stringify({ key, value }) }),
+  envBatchSet: (updates: Record<string, string>) =>
+    agentFetch<Record<string, unknown>>("/api/env/batch", { method: "POST", body: JSON.stringify({ updates }) }),
+  envDelete: (key: string) =>
+    agentFetch<Record<string, unknown>>(`/api/env/${key}`, { method: "DELETE" }),
+  envTest: (key: string) =>
+    agentFetch<Record<string, unknown>>(`/api/env/test/${key}`, { method: "POST" }),
 };

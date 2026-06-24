@@ -8,7 +8,7 @@ import {
   ChevronRight, Circle, CheckCircle2, XCircle,
   Camera, FileText, Mail, Calendar, Globe, Monitor, MonitorSmartphone,
   Lightbulb, Eye, Languages, Sparkles, Search, Code, Network,
-  Mic, Plug, Radio, MessageSquare, Command, Volume2,
+  Mic, Plug, Radio, MessageSquare, Command, Volume2, Settings,
 } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi, type TaskRecord } from "@/lib/agent-api";
@@ -28,6 +28,7 @@ import {
 import {
   LLMProviderSwitcher, SmartSuggestionsPanel, PromptTemplatesPanel, BackupPanel,
 } from "@/components/agent/power-panels";
+import { SettingsModal } from "@/components/agent/settings-modal";
 
 const MODULES_LIST = ["screen", "files", "email", "calendar", "browser", "system", "windows", "code", "web", "voice", "plugin", "mcp", "vision", "slack"];
 
@@ -66,6 +67,7 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [screenshots, setScreenshots] = useState<Array<{ name: string; size: number; modified: number }>>([]);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeView, setActiveView] = useState<"stream" | "tasks" | "logs" | "screens">("stream");
   const [liveTrace, setLiveTrace] = useState<Array<Record<string, unknown>>>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -188,6 +190,10 @@ export default function Dashboard() {
               <Command className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{lang === "fr" ? "Commande" : "Command"}</span>
               <kbd className="text-[9px] font-mono bg-muted/60 px-1 py-0.5 rounded">⌘K</kbd>
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSettingsOpen(true)} className="gap-1.5 text-xs px-2" title={lang === "fr" ? "Paramètres" : "Settings"}>
+              <Settings className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === "fr" ? "Paramètres" : "Settings"}</span>
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setLang(lang === "fr" ? "en" : "fr")} className="gap-1.5 font-mono text-xs px-2">
               <Languages className="w-3.5 h-3.5" />
@@ -599,6 +605,7 @@ export default function Dashboard() {
       </footer>
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onSubmit={submitTask} />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} lang={lang} />
     </div>
   );
 }
