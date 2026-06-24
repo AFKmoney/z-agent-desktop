@@ -1,0 +1,391 @@
+"""
+Main Agent - orchestrates perception, planning, execution.
+This is the top-level loop that ties everything together.
+"""
+import asyncio
+import json
+import time
+from typing import Dict, Any, Optional, List, Callable
+from enum import Enum
+
+from utils.logger import get_logger
+from utils.config import get_data_dir
+from core.memory import get_memory, init_memory
+from core.perception import init_perception, get_perception
+from core.planner import init_planner, get_planner
+from core.executor import init_executor, get_executor
+from core.zai_client import init_zai
+
+log = get_logger("agent")
+
+
+class AgentState(str, Enum):
+    IDLE = "idle"
+    PLANNING = "planning"
+    EXECUTING = "executing"
+    PAUSED = "paused"
+    ERROR = "error"
+    STOPPED = "stopped"
+
+
+class Agent:
+    """Top-level orchestrator."""
+    
+    def __init__(self, config: dict):
+        self.config = config
+        self.state = AgentState.STOPPED
+        self.current_task: Optional[Dict[str, Any]] = None
+        self.task_queue: asyncio.Queue = asyncio.Queue()
+        self._subscribers: List[Callable] = []
+        self._loop_task: Optional[asyncio.Task] = None
+        
+        # Progression broadcast
+        self._progress_subscribers: List[Callable] = []
+    
+    def subscribe_state(self, callback: Callable):
+        self._subscribers.append(callback)
+    
+    def subscribe_progress(self, callback: Callable):
+        self._progress_subscribers.append(callback)
+    
+    def _set_state(self, state: AgentState):
+        old = self.state
+        self.state = state
+        if old != state:
+            log.info(f"Agent state: {old.value} -> {state.value}")
+            for cb in list(self._subscribers):
+                try:
+                    cb({"state": state.value, "previous": old.value, "timestamp": time.time()})
+                except Exception:
+                    pass
+    
+    async def initialize(self):
+        """Initialize all subsystems."""
+        log.info("Initializing agent subsystems...")
+        init_memory()
+        init_zai(self.config)
+        init_perception(self.config)
+        init_planner(self.config)
+        init_executor(self.config)
+
+        # Init conversation context (persistent multi-task memory)
+        try:
+            from core.conversation_context import init_conversation_context
+            init_conversation_context()
+        except Exception as e:
+            log.warning(f"Conversation context init failed: {e}")
+
+        # Init skill library (for ReAct loop learning)
+        try:
+            from core.skill_library import init_skill_library
+            init_skill_library()
+        except Exception as e:
+            log.warning(f"Skill library init failed: {e}")
+        
+        # Register module handlers
+        # Register modules — gracefully skip those whose deps are missing
+        module_registry = [
+            ("screen_control", "modules.screen_control"),
+            ("file_manager", "modules.file_manager"),
+            ("email_client", "modules.email_client"),
+            ("calendar_client", "modules.calendar_client"),
+            ("browser_control", "modules.browser_control"),
+            ("system_control", "modules.system_control"),
+            ("windows_control", "modules.windows_control"),
+            ("code_interpreter", "modules.code_interpreter"),
+            ("web_search", "modules.web_search"),
+            ("voice_control", "modules.voice_control"),
+            ("plugin_marketplace", "modules.plugin_marketplace"),
+            ("mcp_client", "modules.mcp_client"),
+            ("vision_stream", "modules.vision_stream"),
+            # Optional extension modules (auto-skip if deps missing):
+            ("slack_notifier", "modules.slack_notifier"),
+            # Add your own modules here — see modules/custom_module_template.py
+        ]
+        executor = get_executor()
+        for mod_name, mod_path in module_registry:
+            try:
+                mod = __import__(mod_path, fromlist=["register"])
+                mod.register(executor, self.config)
+                log.info(f"  ✓ Module loaded: {mod_name}")
+            except ImportError as e:
+                log.warning(f"  ✗ Module skipped: {mod_name} (missing dep: {e.name})")
+            except Exception as e:
+                log.error(f"  ! Module {mod_name} failed: {e}")
+
+        log.info(f"Agent initialized. {len(executor.list_available_actions())} actions available.")
+        self._set_state(AgentState.IDLE)
+    
+    async def submit_task(self, request: str, source: str = "telegram",
+                           priority: int = 0) -> str:
+        """Submit a task to the queue. Returns task ID."""
+        task_id = f"task_{int(time.time() * 1000)}"
+        task = {
+            "id": task_id,
+            "request": request,
+            "source": source,
+            "priority": priority,
+            "submitted_at": time.time(),
+            "status": "queued",
+        }
+        await self.task_queue.put(task)
+        log.info(f"Task submitted: {task_id} ({source}): {request[:80]}")
+        return task_id
+    
+    async def _process_task(self, task: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a single task: plan + execute."""
+        task_id = task["id"]
+        request = task["request"]
+
+        self.current_task = task
+        self._set_state(AgentState.PLANNING)
+
+        # Detect language for notifications
+        from utils.i18n import detect_lang, get_default_lang
+        lang = detect_lang(request, fallback=get_default_lang())
+
+        # Broadcast start
+        for cb in list(self._progress_subscribers):
+            try:
+                await cb({"event": "task_start", "task_id": task_id, "request": request})
+            except Exception:
+                pass
+
+        # Proactive Telegram notification: task started
+        try:
+            from interfaces.notifier import get_notifier
+            notifier = get_notifier()
+            if notifier:
+                await notifier.notify_task_started(task_id, request, lang=lang)
+        except Exception as e:
+            log.debug(f"Notifier not available: {e}")
+
+        # === EXECUTION STRATEGY ===
+        # Use ReAct loop (more powerful, adaptive) by default.
+        # Falls back to single-shot planner if ReAct loop is not initialized.
+        use_react = self.config.get("agent", {}).get("use_react_loop", True)
+
+        if use_react:
+            try:
+                from core.react_loop import get_react_loop, init_react_loop
+                react = get_react_loop()
+                if react is None:
+                    react = init_react_loop(self.config)
+                executor = get_executor()
+                available_actions = executor.list_available_actions()
+
+                # Get conversation context for the ReAct loop
+                conv_context = {}
+                try:
+                    from core.conversation_context import get_conversation_context
+                    cc = get_conversation_context()
+                    if cc:
+                        conv_context = cc.get_context_for_planner(request)
+                except Exception:
+                    pass
+
+                async def react_progress(event):
+                    event["task_id"] = task_id
+                    for cb in list(self._progress_subscribers):
+                        try:
+                            await cb({"event": "react_progress", **event})
+                        except Exception:
+                            pass
+
+                react_result = await react.run(
+                    goal=request,
+                    available_actions=available_actions,
+                    progress_callback=react_progress,
+                    context=conv_context,
+                )
+
+                # Convert to standard result format
+                result = {
+                    "total_steps": react_result.get("turns", 0),
+                    "succeeded": sum(1 for h in react_result.get("history", []) if h.get("success")),
+                    "failed": sum(1 for h in react_result.get("history", []) if not h.get("success") and h.get("action")),
+                    "success": react_result.get("success", False),
+                    "results": react_result.get("history", []),
+                    "react_trace": react_result.get("history", []),
+                    "skills_saved": react_result.get("skills_saved", []),
+                    "elapsed_s": react_result.get("elapsed_s", 0),
+                }
+                plan = {
+                    "understanding": f"ReAct loop, {react_result.get('turns', 0)} turns",
+                    "plan": [],
+                    "react_mode": True,
+                }
+            except Exception as e:
+                log.error(f"ReAct loop failed, falling back to planner: {e}")
+                use_react = False
+
+        if not use_react:
+            # 1. Plan (single-shot)
+            planner = get_planner()
+            if planner is None:
+                return {"error": "Planner not initialized"}
+
+            plan = planner.plan(request)
+
+            if "error" in plan:
+                log.error(f"Planning failed for {task_id}: {plan['error']}")
+                return {"task_id": task_id, "error": plan["error"], "plan": None}
+
+            # Broadcast plan
+            for cb in list(self._progress_subscribers):
+                try:
+                    await cb({"event": "plan_ready", "task_id": task_id, "plan": plan})
+                except Exception:
+                    pass
+
+            # 2. Execute
+            self._set_state(AgentState.EXECUTING)
+            executor = get_executor()
+
+            async def progress_cb(update):
+                update["task_id"] = task_id
+                for cb in list(self._progress_subscribers):
+                    try:
+                        await cb({"event": "step_progress", **update})
+                    except Exception:
+                        pass
+
+            result = await executor.execute_plan(plan, progress_callback=progress_cb)
+
+        # 3. Record in memory
+        memory = get_memory()
+        memory.add_task_record({
+            "task_id": task_id,
+            "request": request,
+            "source": task.get("source"),
+            "plan": plan,
+            "result": result,
+            "success": result.get("success", False),
+        })
+
+        # 3b. Record in conversation context (for multi-task memory)
+        try:
+            from core.conversation_context import get_conversation_context
+            cc = get_conversation_context()
+            if cc:
+                cc.add_turn(task_id, request, result)
+        except Exception as e:
+            log.debug(f"Could not add to conversation context: {e}")
+
+        # Broadcast end
+        for cb in list(self._progress_subscribers):
+            try:
+                await cb({"event": "task_end", "task_id": task_id, "result": result})
+            except Exception:
+                pass
+
+        # Proactive Telegram notification: task completed
+        try:
+            from interfaces.notifier import get_notifier
+            notifier = get_notifier()
+            if notifier:
+                if result.get("success", False):
+                    await notifier.notify_task_completed(
+                        task_id, request,
+                        succeeded=result.get("succeeded", 0),
+                        total=result.get("total_steps", 0),
+                        lang=lang,
+                    )
+                else:
+                    # Find first error
+                    first_error = "unknown"
+                    for r in result.get("results", []):
+                        if not r.get("success", False):
+                            first_error = str(r.get("error", "unknown"))
+                            break
+                    await notifier.notify_task_failed(task_id, request, first_error, lang=lang)
+        except Exception as e:
+            log.debug(f"Notifier not available: {e}")
+
+        self.current_task = None
+        self._set_state(AgentState.IDLE)
+        return {"task_id": task_id, "plan": plan, "result": result}
+    
+    async def run(self):
+        """Main agent loop."""
+        log.info("Agent main loop starting...")
+        await self.initialize()
+        
+        while self.state != AgentState.STOPPED:
+            try:
+                if self.state == AgentState.PAUSED:
+                    await asyncio.sleep(1)
+                    continue
+                
+                # Wait for a task with timeout
+                try:
+                    task = await asyncio.wait_for(self.task_queue.get(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    # Idle - do periodic housekeeping
+                    perception = get_perception()
+                    if perception:
+                        perception.cleanup_old_screenshots()
+                    continue
+                
+                # Process
+                try:
+                    await self._process_task(task)
+                except Exception as e:
+                    log.error(f"Task processing exception: {e}", exc_info=True)
+                    self._set_state(AgentState.ERROR)
+                    await asyncio.sleep(2)
+                    self._set_state(AgentState.IDLE)
+            
+            except Exception as e:
+                log.error(f"Agent loop exception: {e}", exc_info=True)
+                await asyncio.sleep(2)
+        
+        log.info("Agent main loop stopped.")
+    
+    async def start(self):
+        """Start the agent in background."""
+        if self._loop_task is None or self._loop_task.done():
+            self._set_state(AgentState.IDLE)
+            self._loop_task = asyncio.create_task(self.run())
+    
+    async def stop(self):
+        """Stop the agent."""
+        self._set_state(AgentState.STOPPED)
+        if self._loop_task:
+            self._loop_task.cancel()
+            try:
+                await self._loop_task
+            except asyncio.CancelledError:
+                pass
+            self._loop_task = None
+    
+    async def pause(self):
+        self._set_state(AgentState.PAUSED)
+    
+    async def resume(self):
+        if self.state == AgentState.PAUSED:
+            self._set_state(AgentState.IDLE)
+    
+    def get_status(self) -> Dict[str, Any]:
+        memory = get_memory() if self.state != AgentState.STOPPED else None
+        return {
+            "state": self.state.value,
+            "current_task": self.current_task,
+            "queue_size": self.task_queue.qsize(),
+            "memory": memory.snapshot() if memory else None,
+            "uptime_s": time.time() - getattr(self, "_start_time", time.time()),
+        }
+
+
+# Global agent instance
+_agent: Optional[Agent] = None
+
+
+def init_agent(config: dict) -> Agent:
+    global _agent
+    _agent = Agent(config)
+    return _agent
+
+
+def get_agent() -> Optional[Agent]:
+    return _agent

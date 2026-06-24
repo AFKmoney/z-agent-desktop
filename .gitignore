@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+*.egg-info/
+.pytest_cache/
+
+# Agent runtime data
+data/screenshots/
+data/logs/
+*.log
+~/.zda-agent/
+
+# Local config with secrets
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Sidecar temp files
+sdk_sidecar.mjs
+web_sidecar.cjs
+
+# Sandbox
+sandbox/

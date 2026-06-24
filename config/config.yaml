@@ -1,0 +1,301 @@
+# ============================================================
+# Z.AI Desktop Agent - Configuration
+# ============================================================
+# Copy this file to config.yaml and edit values.
+# Or override any value with environment variables (ZDA_ prefix).
+# ============================================================
+
+agent:
+  name: "ZDA-Agent"
+  version: "2.0.0"
+  language: "auto"                   # auto | fr | en | zh (auto detects from system + per-message)
+  # When true, agent can execute destructive actions without confirmation
+  full_autonomy: true
+  # Loop interval in seconds when idle
+  idle_interval: 30
+  # Max consecutive actions per task (safety limit)
+  max_actions_per_task: 50
+  # Use ReAct loop (Reason+Act+Observe+Critique) instead of single-shot planning.
+  # ReAct is more powerful — it adapts to failures and observes after each action.
+  # Set to false to fall back to the original single-shot planner.
+  use_react_loop: true
+
+# ============================================================
+# Z.AI Models Configuration (Multi-model router)
+# ============================================================
+zai:
+  # Get your API key at https://z.ai/
+  api_key: "${ZAI_API_KEY}"
+  base_url: "https://api.z.ai/api/paas/v4"
+
+  # ----- BACKEND SELECTION -----
+  # 'rest': OpenAI-compatible REST API (default, works everywhere)
+  # 'sdk':  z-ai-web-dev-sdk via Node sidecar (auto-falls back to 'rest' if missing)
+  #         The SDK is the official client for the z.ai coding plan.
+  #         It provides better rate-limit handling, retries, and billing integration.
+  # Override with env: ZDA_USE_SDK=true
+  backend: "rest"
+
+  # ----- ACTIVE MODEL ROUTING -----
+  # Available models confirmed in API: glm-4.6, glm-4.5, glm-4v,
+  # glm-4-plus, glm-5.1, glm-5.2
+  #
+  # To switch to GLM-5.x, just change the values below.
+  # Recommended GLM-5.x setup (uncomment to enable):
+  #
+  # models:
+  #   planner: "glm-5.1"     # Most capable — complex multi-step reasoning
+  #   vision: "glm-4v"        # Keep 4V for vision (no 5V yet)
+  #   executor: "glm-5.2"    # Fast next-gen executor
+  #
+  models:
+    # Primary planner - reasoning and decomposition
+    planner: "glm-4.6"
+    # Vision model - screen understanding (no GLM-5V yet)
+    vision: "glm-4v"
+    # Fast executor - simple actions
+    executor: "glm-4.5"
+
+  # Temperature per role
+  temperature:
+    planner: 0.3
+    vision: 0.1
+    executor: 0.2
+
+  max_tokens: 4096
+
+# ============================================================
+# Telegram Configuration
+# ============================================================
+telegram:
+  # Get token from @BotFather
+  token: "${TELEGRAM_BOT_TOKEN}"
+  # Your Telegram user ID (integer) - the agent will only respond to this user
+  # Find it via @userinfobot
+  allowed_user_ids:
+    - 0
+  # Enable language-natural commands (true) or slash only (false)
+  natural_language: true
+
+# ============================================================
+# Screen Control
+# ============================================================
+screen:
+  # Screenshot interval for VLM perception (seconds)
+  perception_interval: 5
+  # Screenshot scale (1.0 = full resolution, 0.5 = half for faster VLM)
+  scale: 0.75
+  # Confidence threshold for VLM-detected click targets (0-1)
+  click_confidence: 0.7
+  # Default action delay (seconds) - safety between actions
+  action_delay: 0.5
+  # Save screenshots for audit
+  save_screenshots: true
+
+# ============================================================
+# File Manager
+# ============================================================
+files:
+  # Folders the agent can manage
+  # Add your own folders here — the agent will be able to list, organize,
+  # search, move, copy, rename, and delete files inside them.
+  watch_folders:
+    - "${HOME}/Desktop"
+    - "${HOME}/Downloads"
+    - "${HOME}/Documents"
+    - "${HOME}/Pictures"
+    # Examples of additional folders you can add:
+    # - "${HOME}/Projects"
+    # - "${HOME}/Music"
+    # - "/shared/team-files"
+    # - "D:/Work"                  # Windows second drive
+    # - "/Volumes/External"        # macOS external drive
+
+  # Organization rules — used by files.organize action.
+  # Customize categories and extensions to match your workflow.
+  auto_organize:
+    enabled: false                # set true to auto-organize every 24h
+    # Patterns: {category: [extensions]}
+    rules:
+      Images: [".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".svg", ".bmp"]
+      Documents: [".pdf", ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".txt", ".rtf", ".odt"]
+      Archives: [".zip", ".tar", ".gz", ".rar", ".7z", ".bz2", ".xz"]
+      Code: [".py", ".js", ".ts", ".tsx", ".jsx", ".html", ".css", ".scss",
+             ".json", ".yaml", ".yml", ".toml", ".md", ".rs", ".go", ".java",
+             ".cpp", ".c", ".h", ".sh", ".rb", ".php", ".sql"]
+      Videos: [".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".m4v"]
+      Audio: [".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma"]
+      Data: [".csv", ".tsv", ".xml", ".parquet", ".feather"]
+      Design: [".psd", ".ai", ".sketch", ".fig", ".xd", ".indd"]
+      Installers: [".dmg", ".exe", ".msi", ".deb", ".rpm", ".appimage", ".pkg"]
+  # Safe delete (move to trash instead of permanent delete)
+  safe_delete: true
+
+# ============================================================
+# Email Configuration (IMAP receive + SMTP send)
+# ============================================================
+email:
+  # IMAP (incoming)
+  imap_server: "imap.gmail.com"
+  imap_port: 993
+  imap_ssl: true
+  username: "${EMAIL_USER}"
+  password: "${EMAIL_APP_PASSWORD}"   # Use app password, NOT your real password
+  
+  # SMTP (outgoing)
+  smtp_server: "smtp.gmail.com"
+  smtp_port: 587
+  smtp_tls: true
+  
+  # Auto-processing rules
+  auto_rules:
+    enabled: false
+    mark_urgent_from: []              # List of sender emails to flag as urgent
+    auto_archive_read_older_than_days: 30
+
+# ============================================================
+# Calendar (ICS files)
+# ============================================================
+calendar:
+  # Path to .ics files (Google Calendar / Outlook export)
+  ics_files: []
+  # Local calendar file managed by the agent
+  local_calendar: "${HOME}/.zda-agent/calendar.ics"
+  # Check interval (seconds)
+  check_interval: 300
+  # Notify X minutes before event
+  notify_before_minutes: 15
+
+# ============================================================
+# Browser Control (Playwright)
+# ============================================================
+browser:
+  # Browser: chromium | firefox | webkit
+  browser: "chromium"
+  headless: false                     # Visible browser for debugging
+  # User data dir to persist sessions (login cookies)
+  user_data_dir: "${HOME}/.zda-agent/browser-profile"
+  # Default timeout (ms)
+  timeout: 30000
+
+# ============================================================
+# System Control
+# ============================================================
+system:
+  # Allowed apps to launch (whitelist)
+  allowed_apps:
+    - "notepad"
+    - "calc"
+    - "explorer"
+    - "code"
+    - "chrome"
+    - "firefox"
+    - "safari"
+    - "terminal"
+  # Screenshot on error
+  screenshot_on_error: true
+
+# ============================================================
+# Dashboard / Web API
+# ============================================================
+dashboard:
+  # FastAPI server
+  host: "127.0.0.1"
+  port: 8765
+  # CORS
+  cors_origins: ["*"]
+  # WebSocket for real-time logs
+  websocket_enabled: true
+
+# ============================================================
+# Logging
+# ============================================================
+logging:
+  level: "INFO"                       # DEBUG | INFO | WARNING | ERROR
+  file: "${HOME}/.zda-agent/logs/agent.log"
+  max_size_mb: 50
+  backup_count: 5
+  # Also send logs to dashboard
+  broadcast_to_dashboard: true
+
+# ============================================================
+# Security
+# ============================================================
+security:
+  # Even in full_autonomy, NEVER touch these paths
+  protected_paths:
+    - "${HOME}/.ssh"
+    - "${HOME}/.aws"
+    - "${HOME}/.config/1password"
+    - "/etc/passwd"
+    - "/etc/shadow"
+  # Max file size the agent can read/write (MB)
+  max_file_size_mb: 100
+  # Block these actions even in full_autonomy
+  blocked_actions:
+    - "format_disk"
+    - "rm_rf_root"
+    - "modify_system_files"
+
+# ============================================================
+# Voice Control (Whisper STT + TTS)
+# ============================================================
+voice:
+  # STT backend: 'api' (OpenAI/z.ai Whisper API) or 'local' (whisper.cpp)
+  stt_backend: "api"
+  # TTS backend: 'api' or 'local' (espeak)
+  tts_backend: "api"
+  whisper_model: "whisper-1"
+  tts_voice: "alloy"              # alloy | echo | fable | onyx | nova | shimmer
+  tts_speed: 1.0
+  language: "auto"                # auto | fr | en
+  # For local Whisper:
+  # local_model_size: "base"      # tiny | base | small | medium | large
+
+# ============================================================
+# Vision Streaming (continuous screen monitoring)
+# ============================================================
+vision_stream:
+  # Mode: 'monitoring' (low FPS, change detection) or 'live' (high FPS)
+  mode: "monitoring"
+  fps: 1.0                        # 1.0 for monitoring, 5.0+ for live
+  scale: 0.5                      # Downscale factor for faster processing
+  change_threshold: 5             # Hamming distance for change detection
+  save_frames: false              # Save frames to disk (uses space)
+  max_frames_history: 60          # Max frames kept in memory
+
+# ============================================================
+# MCP (Model Context Protocol) — external tool servers
+# ============================================================
+# Configure MCP servers to extend the agent with external tools.
+# Each server is a separate process that exposes tools via JSON-RPC.
+# See https://github.com/modelcontextprotocol/servers for available servers.
+mcp:
+  servers:
+    # Example: filesystem MCP server
+    # filesystem:
+    #   command: "npx"
+    #   args: ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}"]
+    #   env: {}
+    #   enabled: true
+    #
+    # Example: GitHub MCP server
+    # github:
+    #   command: "npx"
+    #   args: ["-y", "@modelcontextprotocol/server-github"]
+    #   env:
+    #     GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}"
+    #   enabled: false
+    #
+    # Example: PostgreSQL MCP server
+    # postgres:
+    #   command: "npx"
+    #   args: ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
+    #   enabled: false
+
+# ============================================================
+# Code Interpreter (Python sandbox)
+# ============================================================
+code_interpreter:
+  timeout_s: 30                   # Max execution time per script
+  max_memory_mb: 256              # Memory limit per script
