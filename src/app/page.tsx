@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Languages, Command, MessageCircle, Users, Settings as SettingsIcon, Menu, X } from "lucide-react";
+import { Command, MessageCircle, Users, Settings as SettingsIcon, Menu, X } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { detectBrowserLang, setStoredLang, type Lang } from "@/lib/i18n";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Sidebar, type SectionId } from "@/components/agent/sidebar";
@@ -109,10 +110,10 @@ export default function Dashboard() {
                 <SettingsIcon className="w-3.5 h-3.5" />
                 <span className="hidden md:inline">{lang === "fr" ? "Paramètres" : "Settings"}</span>
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => { const l = lang === "fr" ? "en" : "fr"; setLang(l); setStoredLang(l); }} className="gap-1.5 font-mono text-xs px-2">
-                <Languages className="w-3.5 h-3.5" />
-                {lang.toUpperCase()}
-              </Button>
+              <LanguageSelector
+                currentLang={lang}
+                onLanguageChange={(l) => { setLang(l); setStoredLang(l); }}
+              />
             </div>
           </div>
         </header>
