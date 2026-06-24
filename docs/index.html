@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Z.AGENT — Autonomous Desktop Agent</title>
+  <meta name="description" content="Autonomous desktop agent powered by z.ai GLM — 83 actions, 15 modules, ReAct loop, code interpreter, web search, multi-agent orchestrator, voice control, MCP, plugin marketplace, vision streaming.">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --border: #334155;
+      --text: #F1F5F9;
+      --muted: #94A3B8;
+      --primary: #10B981;
+      --accent: #06B6D4;
+      --amber: #F59E0B;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 64px 0 48px;
+      background: radial-gradient(ellipse at top, rgba(16,185,129,0.08), transparent 60%);
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .tagline {
+      font-size: 22px;
+      color: var(--accent);
+      font-weight: 500;
+      margin-bottom: 24px;
+    }
+    .description {
+      font-size: 16px;
+      color: var(--muted);
+      max-width: 720px;
+      margin-bottom: 32px;
+    }
+    .cta {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: var(--bg);
+    }
+    .btn-primary:hover { background: #059669; transform: translateY(-1px); }
+    .btn-secondary {
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    section { padding: 64px 0; border-bottom: 1px solid var(--border); }
+    h2 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 32px;
+      letter-spacing: -0.5px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      transition: all 0.2s;
+    }
+    .card:hover { border-color: var(--primary); transform: translateY(-2px); }
+    .card-icon { font-size: 28px; margin-bottom: 12px; }
+    .card h3 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .card p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stat {
+      text-align: center;
+      padding: 24px 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .stat-value {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .code {
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+      font-size: 13px;
+      color: #c9d1d9;
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+    .code .comment { color: #6a9955; }
+    .code .keyword { color: #ff7b72; }
+    .code .string { color: #a5d6ff; }
+    footer {
+      padding: 32px 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    footer a { color: var(--primary); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <span class="badge">● Powered by z.ai GLM</span>
+      <h1>Z.AGENT</h1>
+      <div class="tagline">Autonomous Desktop Agent</div>
+      <p class="description">
+        Transform your computer into a remotely-controllable system. Send tasks in natural language
+        via Telegram, the agent plans, executes, and notifies you — using GLM-4.6 / 4V / 4.5 / 5.x
+        for reasoning, vision, and execution.
+      </p>
+      <div class="cta">
+        <a href="Z-AGENT-Documentation.pdf" class="btn btn-primary">📄 Read the Documentation (PDF)</a>
+        <a href="https://github.com/AFKmoney/z-agent-desktop" class="btn btn-secondary">🌐 View on GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="container">
+      <h2>Key numbers</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value">83</div>
+          <div class="stat-label">Actions</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">15</div>
+          <div class="stat-label">Modules</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">5</div>
+          <div class="stat-label">GLM Models</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">2</div>
+          <div class="stat-label">Languages</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2>Advanced capabilities</h2>
+      <div class="grid">
+        <div class="card">
+          <div class="card-icon">✨</div>
+          <h3>ReAct Loop</h3>
+          <p>Reason → Act → Observe → Critique. The agent adapts to failures and replans mid-task, instead of executing a fixed plan blindly.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🐍</div>
+          <h3>Code Interpreter</h3>
+          <p>Sandboxed Python execution for data analysis, file parsing, math, and custom automation. Whitelist-based imports, resource limits.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔍</div>
+          <h3>Web Search</h3>
+          <p>Real-time web search and page reading via z-ai-web-dev-sdk. Deep research mode reads top results and synthesizes findings.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🤖</div>
+          <h3>Multi-Agent Orchestrator</h3>
+          <p>Spawns specialized sub-agents (researcher, coder, file_organizer, communicator...) running in parallel for complex tasks.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🧠</div>
+          <h3>Skill Library</h3>
+          <p>The agent learns from its successes. Reusable action sequences are saved as skills and reused when similar goals appear.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🎙️</div>
+          <h3>Voice Control</h3>
+          <p>Send voice messages to the Telegram bot — Whisper transcribes them and the agent processes them as text. TTS for replies.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">💬</div>
+          <h3>Conversation Context</h3>
+          <p>Long-term multi-task memory. Follow-up requests like "do the same for Documents" work because the agent remembers past turns.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🔌</div>
+          <h3>Plugin Marketplace</h3>
+          <p>Install third-party plugins from local paths, zips, or git URLs. Each plugin extends the agent with new actions.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🌐</div>
+          <h3>MCP Integration</h3>
+          <p>Connect to any Model Context Protocol server — filesystem, GitHub, Postgres, Slack, Puppeteer — and use their tools natively.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📹</div>
+          <h3>Vision Streaming</h3>
+          <p>Continuous screen monitoring with change detection. Watchers trigger notifications when specific UI elements appear.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🪟</div>
+          <h3>100% Windows Control</h3>
+          <p>PowerShell, registry, services, COM (Outlook/Excel/Word), window management, Wi-Fi, volume, brightness, wallpaper, event log.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚡</div>
+          <h3>Native Tool Calling</h3>
+          <p>Uses GLM's native function-calling API for reliable multi-round tool invocation — no more JSON parsing failures.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2>Quick start</h2>
+      <div class="code">
+<span class="comment"># 1. Clone</span>
+git clone https://github.com/AFKmoney/z-agent-desktop.git
+<span class="keyword">cd</span> z-agent-desktop
+
+<span class="comment"># 2. Install</span>
+python -m venv venv
+<span class="keyword">source</span> venv/bin/activate    <span class="comment"># Windows: venv\Scripts\activate</span>
+pip install -r requirements.txt
+playwright install chromium
+
+<span class="comment"># 3. Configure</span>
+cp .env.example .env
+<span class="comment"># Edit .env with your ZAI_API_KEY, TELEGRAM_BOT_TOKEN, etc.</span>
+
+<span class="comment"># 4. Run</span>
+python main.py --check    <span class="comment"># Verify config</span>
+python main.py            <span class="comment"># Start (Telegram + Web API + Notifier)</span>
+      </div>
+      <p style="color: var(--muted); font-size: 14px;">
+        Get your API keys:
+        <a href="https://z.ai/" style="color: var(--primary);">z.ai API key</a> ·
+        <a href="https://t.me/BotFather" style="color: var(--primary);">Telegram bot token</a> ·
+        <a href="https://myaccount.google.com/apppasswords" style="color: var(--primary);">Gmail app password</a>
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2>Architecture</h2>
+      <div class="code">
+┌─────────────────────────────────────────────────────────┐
+│              Telegram / Dashboard / CLI                  │
+└────────────────────────┬────────────────────────────────┘
+                          │ tasks (natural language)
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                    AGENT CORE                            │
+│  ┌───────────┐  ┌──────────┐  ┌────────────────────┐    │
+│  │  ReAct    │→ │ Executor │→ │ Conversation Ctx   │    │
+│  │  Loop     │  │          │  │ (long-term memory) │    │
+│  └─────┬─────┘  └────┬─────┘  └────────────────────┘    │
+│        │              │                                   │
+│        ▼              ▼                                   │
+│  ┌───────────┐  ┌─────────────────────────────────┐     │
+│  │ Skill     │  │ 15 MODULES (83 actions)         │     │
+│  │ Library   │  │ screen files email calendar     │     │
+│  └───────────┘  │ browser system windows          │     │
+│  ┌───────────┐  │ code web voice vision           │     │
+│  │ Multi-    │  │ plugin mcp slack                │     │
+│  │ Agent     │  └─────────────────────────────────┘     │
+│  └───────────┘                                            │
+└─────────────────────────────────────────────────────────┘
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p>
+        Z.AGENT v2.5 · MIT License ·
+        <a href="https://github.com/AFKmoney/z-agent-desktop">GitHub</a> ·
+        <a href="https://github.com/AFKmoney/z-agent-desktop/discussions">Discussions</a> ·
+        <a href="https://github.com/AFKmoney/z-agent-desktop/issues">Issues</a>
+      </p>
+      <p style="margin-top: 8px; font-size: 12px;">
+        Powered by z.ai GLM-4.6 / GLM-4V / GLM-4.5 / GLM-5.1 / GLM-5.2
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
