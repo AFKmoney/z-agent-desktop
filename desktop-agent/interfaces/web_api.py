@@ -9,7 +9,7 @@ import time
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -501,3 +501,294 @@ async def notifications_history(limit: int = 50):
         return {"notifications": []}
     entries = audit.get_recent(limit=limit * 5, filter_action="notification")
     return {"notifications": entries[:limit]}
+
+
+# ============ Multi-LLM Provider ============
+
+@app.get("/api/llm/providers")
+async def llm_providers():
+    """List available LLM providers."""
+    from core.llm_provider import get_llm_provider
+    provider = get_llm_provider()
+    if provider is None:
+        return {"providers": []}
+    return {"providers": provider.list_available_providers()}
+
+
+@app.post("/api/llm/test")
+async def llm_test(provider: str = Body(..., embed=True)):
+    """Test a provider connection."""
+    from core.llm_provider import get_llm_provider
+    p = get_llm_provider()
+    if p is None:
+        raise HTTPException(500, "Not initialized")
+    return p.test_provider(provider)
+
+
+@app.post("/api/llm/set-primary")
+async def llm_set_primary(provider: str = Body(..., embed=True)):
+    """Set the primary LLM provider."""
+    from core.llm_provider import get_llm_provider
+    p = get_llm_provider()
+    if p is None:
+        raise HTTPException(500, "Not initialized")
+    p.primary = provider
+    return {"success": True, "primary": provider}
+
+
+# ============ Vector Memory ============
+
+class MemoryCreate(BaseModel):
+    text: str
+    memory_type: str = "fact"
+    tags: List[str] = []
+    importance: float = 0.5
+
+
+@app.get("/api/vector-memory")
+async def vector_memory_list(memory_type: Optional[str] = None, limit: int = 100):
+    """List vector memories."""
+    from core.vector_memory import get_vector_memory
+    vm = get_vector_memory()
+    if vm is None:
+        return {"memories": []}
+    return {"memories": vm.list_memories(memory_type=memory_type, limit=limit)}
+
+
+@app.post("/api/vector-memory")
+async def vector_memory_create(req: MemoryCreate):
+    """Create a vector memory."""
+    from core.vector_memory import get_vector_memory
+    vm = get_vector_memory()
+    if vm is None:
+        raise HTTPException(500, "Not initialized")
+    return await vm.remember(
+        text=req.text,
+        memory_type=req.memory_type,
+        tags=req.tags,
+        importance=req.importance,
+    )
+
+
+@app.post("/api/vector-memory/search")
+async def vector_memory_search(query: str = Body(..., embed=True), top_k: int = 5):
+    """Search vector memories semantically."""
+    from core.vector_memory import get_vector_memory
+    vm = get_vector_memory()
+    if vm is None:
+        return {"results": []}
+    return {"results": await vm.recall(query, top_k=top_k)}
+
+
+@app.get("/api/vector-memory/stats")
+async def vector_memory_stats():
+    """Get vector memory statistics."""
+    from core.vector_memory import get_vector_memory
+    vm = get_vector_memory()
+    if vm is None:
+        return {}
+    return vm.get_stats()
+
+
+# ============ Auto Skill Creator ============
+
+@app.get("/api/auto-skills/patterns")
+async def auto_skill_patterns(limit: int = 20):
+    """List detected patterns."""
+    from core.auto_skill_creator import get_auto_skill_creator
+    asc = get_auto_skill_creator()
+    if asc is None:
+        return {"patterns": []}
+    return {"patterns": asc.list_patterns(limit)}
+
+
+@app.get("/api/auto-skills/stats")
+async def auto_skill_stats():
+    """Get auto skill creator statistics."""
+    from core.auto_skill_creator import get_auto_skill_creator
+    asc = get_auto_skill_creator()
+    if asc is None:
+        return {}
+    return asc.get_stats()
+
+
+# ============ Prompt Templates ============
+
+class TemplateCreate(BaseModel):
+    name: str
+    template: str
+    description: str = ""
+    category: str = "general"
+    tags: List[str] = []
+
+
+@app.get("/api/templates")
+async def templates_list(category: Optional[str] = None, search: Optional[str] = None):
+    """List prompt templates."""
+    from core.prompt_templates import get_prompt_templates
+    lib = get_prompt_templates()
+    if lib is None:
+        return {"templates": []}
+    return {"templates": lib.list(category=category, search=search)}
+
+
+@app.post("/api/templates")
+async def templates_create(req: TemplateCreate):
+    """Create a prompt template."""
+    from core.prompt_templates import get_prompt_templates
+    lib = get_prompt_templates()
+    if lib is None:
+        raise HTTPException(500, "Not initialized")
+    return lib.create(name=req.name, template=req.template, description=req.description,
+                      category=req.category, tags=req.tags)
+
+
+@app.delete("/api/templates/{template_id}")
+async def templates_delete(template_id: str):
+    """Delete a prompt template."""
+    from core.prompt_templates import get_prompt_templates
+    lib = get_prompt_templates()
+    if lib is None:
+        raise HTTPException(500, "Not initialized")
+    return lib.delete(template_id)
+
+
+# ============ Webhooks ============
+
+class WebhookCreate(BaseModel):
+    name: str
+    template: str
+    auth_token: Optional[str] = None
+    sync: bool = False
+    timeout_s: int = 60
+
+
+@app.get("/api/webhooks")
+async def webhooks_list():
+    """List webhooks."""
+    from core.webhooks import get_webhook_manager
+    mgr = get_webhook_manager()
+    if mgr is None:
+        return {"webhooks": []}
+    return {"webhooks": mgr.list()}
+
+
+@app.post("/api/webhooks")
+async def webhooks_create(req: WebhookCreate):
+    """Create a webhook."""
+    from core.webhooks import get_webhook_manager
+    mgr = get_webhook_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.create(name=req.name, template=req.template, auth_token=req.auth_token,
+                      sync=req.sync, timeout_s=req.timeout_s)
+
+
+@app.delete("/api/webhooks/{webhook_id}")
+async def webhooks_delete(webhook_id: str):
+    """Delete a webhook."""
+    from core.webhooks import get_webhook_manager
+    mgr = get_webhook_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.delete(webhook_id)
+
+
+@app.post("/api/webhook/{secret}")
+async def webhook_trigger(secret: str, request: Request):
+    """Trigger a webhook (called by external services)."""
+    from core.webhooks import get_webhook_manager
+    mgr = get_webhook_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    client_ip = request.client.host if request.client else "unknown"
+    return await mgr.trigger(secret, payload, client_ip)
+
+
+# ============ File Watcher ============
+
+class WatchRuleCreate(BaseModel):
+    path: str
+    events: List[str]  # created, modified, deleted, moved
+    patterns: List[str]  # glob
+    task_request: str
+    name: str = ""
+
+
+@app.get("/api/watch-rules")
+async def watch_rules_list():
+    """List file watch rules."""
+    from core.file_watcher import get_file_watcher
+    w = get_file_watcher()
+    if w is None:
+        return {"rules": []}
+    return {"rules": w.list_rules()}
+
+
+@app.post("/api/watch-rules")
+async def watch_rules_create(req: WatchRuleCreate):
+    """Create a file watch rule."""
+    from core.file_watcher import get_file_watcher
+    w = get_file_watcher()
+    if w is None:
+        raise HTTPException(500, "Not initialized")
+    return w.add_rule(path=req.path, events=req.events, patterns=req.patterns,
+                      task_request=req.task_request, name=req.name)
+
+
+@app.delete("/api/watch-rules/{rule_id}")
+async def watch_rules_delete(rule_id: str):
+    """Delete a file watch rule."""
+    from core.file_watcher import get_file_watcher
+    w = get_file_watcher()
+    if w is None:
+        raise HTTPException(500, "Not initialized")
+    return w.remove_rule(rule_id)
+
+
+# ============ Smart Suggestions ============
+
+@app.get("/api/suggestions")
+async def suggestions_get(current: Optional[str] = None, limit: int = 5):
+    """Get smart suggestions."""
+    from core.smart_suggestions import get_smart_suggestions
+    ss = get_smart_suggestions()
+    if ss is None:
+        return {"suggestions": []}
+    return {"suggestions": ss.suggest(current_request=current, limit=limit)}
+
+
+# ============ Backup / Restore ============
+
+@app.post("/api/backup/create")
+async def backup_create(include_screenshots: bool = False):
+    """Create a backup."""
+    from core.backup import get_backup_manager
+    bm = get_backup_manager()
+    if bm is None:
+        raise HTTPException(500, "Not initialized")
+    return bm.create_backup(include_screenshots=include_screenshots)
+
+
+@app.get("/api/backups")
+async def backups_list():
+    """List available backups."""
+    from core.backup import get_backup_manager
+    bm = get_backup_manager()
+    if bm is None:
+        return {"backups": []}
+    return {"backups": bm.list_backups()}
+
+
+@app.delete("/api/backups/{backup_name}")
+async def backups_delete(backup_name: str):
+    """Delete a backup."""
+    from core.backup import get_backup_manager
+    bm = get_backup_manager()
+    if bm is None:
+        raise HTTPException(500, "Not initialized")
+    return bm.delete_backup(backup_name)

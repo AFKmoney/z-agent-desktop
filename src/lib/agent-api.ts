@@ -188,4 +188,58 @@ export const agentApi = {
   // Notifications
   notifications: (limit = 50) =>
     agentFetch<{ notifications: Array<Record<string, unknown>> }>("/api/notifications", { params: { limit } }),
+
+  // Multi-LLM Provider
+  llmProviders: () => agentFetch<{ providers: Array<Record<string, unknown>> }>("/api/llm/providers"),
+  llmTest: (provider: string) =>
+    agentFetch<Record<string, unknown>>("/api/llm/test", { method: "POST", body: JSON.stringify({ provider }) }),
+  llmSetPrimary: (provider: string) =>
+    agentFetch<{ success: boolean; primary: string }>("/api/llm/set-primary", { method: "POST", body: JSON.stringify({ provider }) }),
+
+  // Vector Memory
+  vectorMemoryList: (memory_type?: string) =>
+    agentFetch<{ memories: Array<Record<string, unknown>> }>("/api/vector-memory", { params: memory_type ? { memory_type } : {} }),
+  vectorMemoryCreate: (data: { text: string; memory_type?: string; tags?: string[]; importance?: number }) =>
+    agentFetch<Record<string, unknown>>("/api/vector-memory", { method: "POST", body: JSON.stringify(data) }),
+  vectorMemorySearch: (query: string, top_k = 5) =>
+    agentFetch<{ results: Array<Record<string, unknown>> }>("/api/vector-memory/search", { method: "POST", body: JSON.stringify({ query, top_k }) }),
+  vectorMemoryStats: () => agentFetch<Record<string, unknown>>("/api/vector-memory/stats"),
+
+  // Auto Skills
+  autoSkillPatterns: (limit = 20) =>
+    agentFetch<{ patterns: Array<Record<string, unknown>> }>("/api/auto-skills/patterns", { params: { limit } }),
+  autoSkillStats: () => agentFetch<Record<string, unknown>>("/api/auto-skills/stats"),
+
+  // Prompt Templates
+  templatesList: (params?: { category?: string; search?: string }) =>
+    agentFetch<{ templates: Array<Record<string, unknown>> }>("/api/templates", { params: params || {} }),
+  templatesCreate: (data: { name: string; template: string; description?: string; category?: string; tags?: string[] }) =>
+    agentFetch<Record<string, unknown>>("/api/templates", { method: "POST", body: JSON.stringify(data) }),
+  templatesDelete: (id: string) =>
+    agentFetch<Record<string, unknown>>(`/api/templates/${id}`, { method: "DELETE" }),
+
+  // Webhooks
+  webhooksList: () => agentFetch<{ webhooks: Array<Record<string, unknown>> }>("/api/webhooks"),
+  webhooksCreate: (data: { name: string; template: string; auth_token?: string; sync?: boolean }) =>
+    agentFetch<Record<string, unknown>>("/api/webhooks", { method: "POST", body: JSON.stringify(data) }),
+  webhooksDelete: (id: string) =>
+    agentFetch<Record<string, unknown>>(`/api/webhooks/${id}`, { method: "DELETE" }),
+
+  // File Watcher
+  watchRulesList: () => agentFetch<{ rules: Array<Record<string, unknown>> }>("/api/watch-rules"),
+  watchRulesCreate: (data: { path: string; events: string[]; patterns: string[]; task_request: string; name?: string }) =>
+    agentFetch<Record<string, unknown>>("/api/watch-rules", { method: "POST", body: JSON.stringify(data) }),
+  watchRulesDelete: (id: string) =>
+    agentFetch<Record<string, unknown>>(`/api/watch-rules/${id}`, { method: "DELETE" }),
+
+  // Smart Suggestions
+  suggestions: (current?: string, limit = 5) =>
+    agentFetch<{ suggestions: Array<Record<string, unknown>> }>("/api/suggestions", { params: current ? { current, limit } : { limit } }),
+
+  // Backup
+  backupCreate: (include_screenshots = false) =>
+    agentFetch<Record<string, unknown>>("/api/backup/create", { method: "POST", params: { include_screenshots } }),
+  backupsList: () => agentFetch<{ backups: Array<Record<string, unknown>> }>("/api/backups"),
+  backupsDelete: (name: string) =>
+    agentFetch<Record<string, unknown>>(`/api/backups/${name}`, { method: "DELETE" }),
 };

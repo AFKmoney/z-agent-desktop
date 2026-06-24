@@ -109,6 +109,63 @@ class Agent:
             init_scheduled_task_manager()
         except Exception as e:
             log.warning(f"Scheduled tasks init failed: {e}")
+
+        # Init multi-LLM provider (replaces single z.ai client for chat)
+        try:
+            from core.llm_provider import init_llm_provider
+            init_llm_provider(self.config)
+        except Exception as e:
+            log.warning(f"Multi-LLM provider init failed: {e}")
+
+        # Init vector memory (semantic long-term memory)
+        try:
+            from core.vector_memory import init_vector_memory
+            init_vector_memory(self.config)
+        except Exception as e:
+            log.warning(f"Vector memory init failed: {e}")
+
+        # Init auto skill creator
+        try:
+            from core.auto_skill_creator import init_auto_skill_creator
+            init_auto_skill_creator(self.config)
+        except Exception as e:
+            log.warning(f"Auto skill creator init failed: {e}")
+
+        # Init prompt templates
+        try:
+            from core.prompt_templates import init_prompt_templates
+            init_prompt_templates()
+        except Exception as e:
+            log.warning(f"Prompt templates init failed: {e}")
+
+        # Init webhooks
+        try:
+            from core.webhooks import init_webhooks
+            init_webhooks()
+        except Exception as e:
+            log.warning(f"Webhooks init failed: {e}")
+
+        # Init smart suggestions
+        try:
+            from core.smart_suggestions import init_smart_suggestions
+            init_smart_suggestions()
+        except Exception as e:
+            log.warning(f"Smart suggestions init failed: {e}")
+
+        # Init file watcher
+        try:
+            from core.file_watcher import init_file_watcher
+            watcher = init_file_watcher(self.config)
+            watcher.start()
+        except Exception as e:
+            log.warning(f"File watcher init failed: {e}")
+
+        # Init backup manager
+        try:
+            from core.backup import init_backup_manager
+            init_backup_manager()
+        except Exception as e:
+            log.warning(f"Backup manager init failed: {e}")
         
         # Register module handlers
         # Register modules — gracefully skip those whose deps are missing
@@ -309,6 +366,32 @@ class Agent:
                 at.record_task(success=result.get("success", False), source=task.get("source", "unknown"))
         except Exception as e:
             log.debug(f"Could not record activity: {e}")
+
+        # 3d. Auto skill creator + smart suggestions
+        try:
+            from core.auto_skill_creator import get_auto_skill_creator
+            asc = get_auto_skill_creator()
+            if asc:
+                task_record = {
+                    "task_id": task_id,
+                    "request": request,
+                    "success": result.get("success", False),
+                    "result": result,
+                }
+                if result.get("success"):
+                    asc.analyze_task(task_record)
+                else:
+                    asc.record_failure(task_record)
+        except Exception as e:
+            log.debug(f"Auto skill creator error: {e}")
+
+        try:
+            from core.smart_suggestions import get_smart_suggestions
+            ss = get_smart_suggestions()
+            if ss:
+                ss.record_task(request)
+        except Exception as e:
+            log.debug(f"Smart suggestions error: {e}")
 
         # Broadcast end
         for cb in list(self._progress_subscribers):

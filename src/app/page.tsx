@@ -25,6 +25,9 @@ import {
   ActivityHeatmap, CostPanel, AuditLogPanel, ScheduledTasksPanel,
   KnowledgeBasePanel, NotificationsPanel,
 } from "@/components/agent/panels";
+import {
+  LLMProviderSwitcher, SmartSuggestionsPanel, PromptTemplatesPanel, BackupPanel,
+} from "@/components/agent/power-panels";
 
 const MODULES_LIST = ["screen", "files", "email", "calendar", "browser", "system", "windows", "code", "web", "voice", "plugin", "mcp", "vision", "slack"];
 
@@ -309,6 +312,10 @@ export default function Dashboard() {
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitTask();
                 }}
               />
+              <SmartSuggestionsPanel
+                currentRequest={taskInput}
+                onPick={(s) => setTaskInput(s)}
+              />
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {QUICK_ACTIONS.map(qa => {
                   const Icon = qa.icon;
@@ -566,12 +573,24 @@ export default function Dashboard() {
           <GlassCard className="p-4">
             <NotificationsPanel />
           </GlassCard>
+
+          <GlassCard className="p-4">
+            <LLMProviderSwitcher />
+          </GlassCard>
+
+          <GlassCard className="p-4">
+            <PromptTemplatesPanel onUse={(tpl) => setTaskInput(tpl)} />
+          </GlassCard>
+
+          <GlassCard className="p-4">
+            <BackupPanel />
+          </GlassCard>
         </motion.div>
       </main>
 
       <footer className="border-t border-border/50 mt-12 py-4">
         <div className="container mx-auto px-4 flex justify-between items-center text-[10px] text-muted-foreground font-mono">
-          <span>Z.AGENT v3.5 · {lang === "fr" ? "propulsé par z.ai GLM" : "powered by z.ai GLM"}</span>
+          <span>Z.AGENT v4.0 · {lang === "fr" ? "propulsé par z.ai GLM" : "powered by z.ai GLM"}</span>
           <span className="flex items-center gap-1.5">
             <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-500" : "bg-red-500")} />
             {state}
