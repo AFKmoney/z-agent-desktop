@@ -1,34 +1,40 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
-import { Command, Menu, X } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Command, Menu, X, Loader2 } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi } from "@/lib/agent-api";
 import { detectBrowserLang, setStoredLang, type Lang } from "@/lib/i18n";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Sidebar, type SectionId } from "@/components/agent/sidebar";
-import {
-  OverviewSection, TasksSection, MonitorSection, AnalyticsSection,
-  AutomationSection, KnowledgeSection, SettingsSection,
-  ChatSection, AgentsSection,
-} from "@/components/agent/sections";
-import { CommandPalette, ParticleBackground } from "@/components/agent";
+import { type SectionId } from "@/components/agent/sidebar";
+import { CommandPalette } from "@/components/agent";
+
+// Dynamically import heavy components with SSR disabled to prevent hydration mismatch
+const ParticleBackground = dynamic(() => import("@/components/agent").then(m => m.ParticleBackground), { ssr: false });
+const Sidebar = dynamic(() => import("@/components/agent/sidebar").then(m => m.Sidebar), { ssr: false });
+const OverviewSection = dynamic(() => import("@/components/agent/sections").then(m => m.OverviewSection), { ssr: false });
+const ChatSection = dynamic(() => import("@/components/agent/sections").then(m => m.ChatSection), { ssr: false });
+const TasksSection = dynamic(() => import("@/components/agent/sections").then(m => m.TasksSection), { ssr: false });
+const MonitorSection = dynamic(() => import("@/components/agent/sections").then(m => m.MonitorSection), { ssr: false });
+const AnalyticsSection = dynamic(() => import("@/components/agent/sections").then(m => m.AnalyticsSection), { ssr: false });
+const AutomationSection = dynamic(() => import("@/components/agent/sections").then(m => m.AutomationSection), { ssr: false });
+const KnowledgeSection = dynamic(() => import("@/components/agent/sections").then(m => m.KnowledgeSection), { ssr: false });
+const AgentsSection = dynamic(() => import("@/components/agent/sections").then(m => m.AgentsSection), { ssr: false });
+const SettingsSection = dynamic(() => import("@/components/agent/sections").then(m => m.SettingsSection), { ssr: false });
 
 function L(lang: string, texts: Record<string, string>): string {
   return texts[lang] || texts.en;
 }
 
 export default function Dashboard() {
-  // Always start with "en" to match SSR, then detect in useEffect
   const [lang, setLang] = useState<Lang>("en");
   const [section, setSection] = useState<SectionId>("overview");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileSidebar, setMobileSidebar] = useState(false);
 
-  // Detect language after hydration to avoid SSR mismatch
   useEffect(() => {
     const detected = detectBrowserLang();
     if (detected !== "en") setLang(detected); // eslint-disable-line react-hooks/set-state-in-effect
@@ -57,7 +63,6 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background flex">
       <ParticleBackground />
 
-      {/* Mobile sidebar overlay */}
       {mobileSidebar && (
         <div
           className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
@@ -65,7 +70,6 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Sidebar */}
       <div className={cn(
         "fixed lg:sticky top-0 left-0 h-screen z-50 lg:z-30 transition-transform duration-300",
         mobileSidebar ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -81,9 +85,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
         <header className="sticky top-0 z-30 glass-strong border-b border-border/50">
           <div className="flex items-center justify-between px-4 py-3">
             <button
@@ -116,27 +118,18 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Section content */}
         <main className="flex-1 overflow-y-auto p-6">
-          <motion.div
-            key={section}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {section === "overview" && <OverviewSection lang={lang} onNavigate={navigateTo} />}
-            {section === "chat" && <ChatSection lang={lang} />}
-            {section === "tasks" && <TasksSection lang={lang} />}
-            {section === "monitor" && <MonitorSection lang={lang} />}
-            {section === "analytics" && <AnalyticsSection lang={lang} />}
-            {section === "automation" && <AutomationSection lang={lang} />}
-            {section === "knowledge" && <KnowledgeSection lang={lang} />}
-            {section === "agents" && <AgentsSection lang={lang} />}
-            {section === "settings" && <SettingsSection lang={lang} />}
-          </motion.div>
+          {section === "overview" && <OverviewSection lang={lang} onNavigate={navigateTo} />}
+          {section === "chat" && <ChatSection lang={lang} />}
+          {section === "tasks" && <TasksSection lang={lang} />}
+          {section === "monitor" && <MonitorSection lang={lang} />}
+          {section === "analytics" && <AnalyticsSection lang={lang} />}
+          {section === "automation" && <AutomationSection lang={lang} />}
+          {section === "knowledge" && <KnowledgeSection lang={lang} />}
+          {section === "agents" && <AgentsSection lang={lang} />}
+          {section === "settings" && <SettingsSection lang={lang} />}
         </main>
 
-        {/* Footer */}
         <footer className="border-t border-border/50 py-3 px-6">
           <div className="flex justify-between items-center text-[10px] text-muted-foreground font-mono">
             <span>Z.AGENT v4.0 · {L(lang, { en: "powered by z.ai GLM", fr: "propulsé par z.ai GLM", es: "impulsado por z.ai GLM", de: "betrieben durch z.ai GLM", pt: "powered by z.ai GLM" })}</span>
@@ -148,16 +141,13 @@ export default function Dashboard() {
         </footer>
       </div>
 
-      {/* Only modal: Command Palette (overlay is correct here) */}
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
-        onSubmit={async (text) => {
+        onSubmit={(text) => {
           setPaletteOpen(false);
           setSection("overview");
-          try {
-            await agentApi.submitTask(text, "dashboard");
-          } catch {}
+          agentApi.submitTask(text, "dashboard").catch(() => {});
         }}
       />
     </div>
