@@ -261,8 +261,20 @@ class ZaiClient:
         max_tokens: Optional[int] = None,
         tools: Optional[List] = None,
         response_format: Optional[Dict] = None,
+        tool_choice: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Send a chat completion request."""
+        """Send a chat completion request.
+
+        Args:
+            messages: Chat messages.
+            role: Model role ('planner', 'vision', 'executor') — selects model+temp.
+            model: Override model name.
+            temperature: Override temperature.
+            max_tokens: Override max tokens.
+            tools: List of tool definitions for native function calling.
+            response_format: Response format spec (e.g. {"type": "json_object"}).
+            tool_choice: 'auto' | 'none' | 'required' | specific tool name.
+        """
         model_name = model or self.models.get(role, "glm-4.6")
         temp = temperature if temperature is not None else self.temperatures.get(role, 0.3)
         max_tok = max_tokens or self.max_tokens
@@ -306,6 +318,8 @@ class ZaiClient:
             kwargs["tools"] = tools
         if response_format:
             kwargs["response_format"] = response_format
+        if tool_choice:
+            kwargs["tool_choice"] = tool_choice
 
         try:
             response = self.client.chat.completions.create(**kwargs)
@@ -330,6 +344,90 @@ class ZaiClient:
         except Exception as e:
             log.error(f"chat[{role}/{model_name}] failed: {e}")
             raise
+
+    def chat_with_tools(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        tool_executor: Optional[callable] = None,
+        role: str = "planner",
+        max_rounds: int = 5,
+    ) -> Dict[str, Any]:
+        """Multi-round chat with native tool calling.
+
+        The LLM can call tools, we execute them, feed results back, repeat.
+
+        Args:
+            messages: Initial messages.
+            tools: Tool definitions (OpenAI function-calling format).
+            tool_executor: Callable(tool_name, tool_args) -> result_str.
+                          If None, tool calls are returned without execution.
+            role: Model role.
+            max_rounds: Max conversation rounds.
+
+        Returns:
+            Final result with full conversation including tool calls.
+        """
+        all_messages = list(messages)
+        all_tool_calls = []
+
+        for round_num in range(max_rounds):
+            result = self.chat(all_messages, role=role, tools=tools, tool_choice="auto")
+
+            tool_calls = result.get("tool_calls")
+            if not tool_calls:
+                # No tool calls — final response
+                return {
+                    **result,
+                    "rounds": round_num + 1,
+                    "all_tool_calls": all_tool_calls,
+                }
+
+            # Add assistant message with tool calls
+            assistant_msg = {
+                "role": "assistant",
+                "content": result.get("content", ""),
+                "tool_calls": tool_calls,
+            }
+            all_messages.append(assistant_msg)
+            all_tool_calls.extend(tool_calls)
+
+            # Execute each tool call
+            if tool_executor:
+                for tc in tool_calls:
+                    tool_name = tc.get("function", {}).get("name", "")
+                    try:
+                        tool_args = json.loads(tc.get("function", {}).get("arguments", "{}"))
+                    except json.JSONDecodeError:
+                        tool_args = {}
+
+                    try:
+                        tool_result = tool_executor(tool_name, tool_args)
+                    except Exception as e:
+                        tool_result = f"Error executing {tool_name}: {e}"
+
+                    all_messages.append({
+                        "role": "tool",
+                        "tool_call_id": tc.get("id", ""),
+                        "content": str(tool_result)[:4000],
+                    })
+            else:
+                # No executor — return after first tool call request
+                return {
+                    **result,
+                    "rounds": round_num + 1,
+                    "all_tool_calls": all_tool_calls,
+                    "note": "tool_executor not provided — tool calls not executed",
+                }
+
+        # Max rounds reached
+        return {
+            "content": "Max tool-calling rounds reached",
+            "role": role,
+            "rounds": max_rounds,
+            "all_tool_calls": all_tool_calls,
+            "truncated": True,
+        }
 
     def chat_stream(
         self,

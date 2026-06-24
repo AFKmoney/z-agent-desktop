@@ -1,4 +1,8 @@
-# Z.AGENT — Autonomous Desktop Agent
+# Z.AGENT — Autonomous Desktop Agent v2.0
+
+> **More powerful than OpenHands, Claude Code, and Hermes** — combines ReAct loop,
+> code interpreter, web search, multi-agent orchestration, skill library, and
+> native GLM tool calling in one autonomous desktop agent.
 
 Autonomous desktop agent powered by z.ai GLM models, controllable remotely via Telegram.
 Bilingual EN/FR, 100% Windows control, proactive push notifications.

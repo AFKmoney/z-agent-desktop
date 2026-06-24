@@ -67,6 +67,13 @@ class Agent:
         init_perception(self.config)
         init_planner(self.config)
         init_executor(self.config)
+
+        # Init skill library (for ReAct loop learning)
+        try:
+            from core.skill_library import init_skill_library
+            init_skill_library()
+        except Exception as e:
+            log.warning(f"Skill library init failed: {e}")
         
         # Register module handlers
         # Register modules — gracefully skip those whose deps are missing
@@ -78,6 +85,8 @@ class Agent:
             ("browser_control", "modules.browser_control"),
             ("system_control", "modules.system_control"),
             ("windows_control", "modules.windows_control"),
+            ("code_interpreter", "modules.code_interpreter"),
+            ("web_search", "modules.web_search"),
             # Optional extension modules (auto-skip if deps missing):
             ("slack_notifier", "modules.slack_notifier"),
             # Add your own modules here — see modules/custom_module_template.py
@@ -139,39 +148,88 @@ class Agent:
                 await notifier.notify_task_started(task_id, request, lang=lang)
         except Exception as e:
             log.debug(f"Notifier not available: {e}")
-        
-        # 1. Plan
-        planner = get_planner()
-        if planner is None:
-            return {"error": "Planner not initialized"}
-        
-        plan = planner.plan(request)
-        
-        if "error" in plan:
-            log.error(f"Planning failed for {task_id}: {plan['error']}")
-            return {"task_id": task_id, "error": plan["error"], "plan": None}
-        
-        # Broadcast plan
-        for cb in list(self._progress_subscribers):
+
+        # === EXECUTION STRATEGY ===
+        # Use ReAct loop (more powerful, adaptive) by default.
+        # Falls back to single-shot planner if ReAct loop is not initialized.
+        use_react = self.config.get("agent", {}).get("use_react_loop", True)
+
+        if use_react:
             try:
-                await cb({"event": "plan_ready", "task_id": task_id, "plan": plan})
-            except Exception:
-                pass
-        
-        # 2. Execute
-        self._set_state(AgentState.EXECUTING)
-        executor = get_executor()
-        
-        async def progress_cb(update):
-            update["task_id"] = task_id
+                from core.react_loop import get_react_loop, init_react_loop
+                react = get_react_loop()
+                if react is None:
+                    react = init_react_loop(self.config)
+                executor = get_executor()
+                available_actions = executor.list_available_actions()
+
+                async def react_progress(event):
+                    event["task_id"] = task_id
+                    for cb in list(self._progress_subscribers):
+                        try:
+                            await cb({"event": "react_progress", **event})
+                        except Exception:
+                            pass
+
+                react_result = await react.run(
+                    goal=request,
+                    available_actions=available_actions,
+                    progress_callback=react_progress,
+                )
+
+                # Convert to standard result format
+                result = {
+                    "total_steps": react_result.get("turns", 0),
+                    "succeeded": sum(1 for h in react_result.get("history", []) if h.get("success")),
+                    "failed": sum(1 for h in react_result.get("history", []) if not h.get("success") and h.get("action")),
+                    "success": react_result.get("success", False),
+                    "results": react_result.get("history", []),
+                    "react_trace": react_result.get("history", []),
+                    "skills_saved": react_result.get("skills_saved", []),
+                    "elapsed_s": react_result.get("elapsed_s", 0),
+                }
+                plan = {
+                    "understanding": f"ReAct loop, {react_result.get('turns', 0)} turns",
+                    "plan": [],
+                    "react_mode": True,
+                }
+            except Exception as e:
+                log.error(f"ReAct loop failed, falling back to planner: {e}")
+                use_react = False
+
+        if not use_react:
+            # 1. Plan (single-shot)
+            planner = get_planner()
+            if planner is None:
+                return {"error": "Planner not initialized"}
+
+            plan = planner.plan(request)
+
+            if "error" in plan:
+                log.error(f"Planning failed for {task_id}: {plan['error']}")
+                return {"task_id": task_id, "error": plan["error"], "plan": None}
+
+            # Broadcast plan
             for cb in list(self._progress_subscribers):
                 try:
-                    await cb({"event": "step_progress", **update})
+                    await cb({"event": "plan_ready", "task_id": task_id, "plan": plan})
                 except Exception:
                     pass
-        
-        result = await executor.execute_plan(plan, progress_callback=progress_cb)
-        
+
+            # 2. Execute
+            self._set_state(AgentState.EXECUTING)
+            executor = get_executor()
+
+            async def progress_cb(update):
+                update["task_id"] = task_id
+                for cb in list(self._progress_subscribers):
+                    try:
+                        await cb({"event": "step_progress", **update})
+                    except Exception:
+                        pass
+
+            result = await executor.execute_plan(plan, progress_callback=progress_cb)
+
         # 3. Record in memory
         memory = get_memory()
         memory.add_task_record({
@@ -182,7 +240,7 @@ class Agent:
             "result": result,
             "success": result.get("success", False),
         })
-        
+
         # Broadcast end
         for cb in list(self._progress_subscribers):
             try:
@@ -212,7 +270,7 @@ class Agent:
                     await notifier.notify_task_failed(task_id, request, first_error, lang=lang)
         except Exception as e:
             log.debug(f"Notifier not available: {e}")
-        
+
         self.current_task = None
         self._set_state(AgentState.IDLE)
         return {"task_id": task_id, "plan": plan, "result": result}

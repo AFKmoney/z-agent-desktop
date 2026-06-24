@@ -7,14 +7,18 @@
 
 agent:
   name: "ZDA-Agent"
-  version: "1.0.0"
-  language: "fr"                     # fr | en | zh
+  version: "2.0.0"
+  language: "auto"                   # auto | fr | en | zh (auto detects from system + per-message)
   # When true, agent can execute destructive actions without confirmation
   full_autonomy: true
   # Loop interval in seconds when idle
   idle_interval: 30
   # Max consecutive actions per task (safety limit)
   max_actions_per_task: 50
+  # Use ReAct loop (Reason+Act+Observe+Critique) instead of single-shot planning.
+  # ReAct is more powerful — it adapts to failures and observes after each action.
+  # Set to false to fall back to the original single-shot planner.
+  use_react_loop: true
 
 # ============================================================
 # Z.AI Models Configuration (Multi-model router)

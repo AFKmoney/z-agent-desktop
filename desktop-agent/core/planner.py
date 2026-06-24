@@ -79,6 +79,14 @@ Available action categories:
 - windows.taskbar_pin: pin/unpin app to taskbar (params: app_path, pin?)
 - windows.env_get: get env variable(s) (params: name?, scope?)
 - windows.env_set: set env variable (params: name, value, scope?)
+- code.run_python: execute Python code in a sandbox (params: code, timeout?)
+- code.evaluate: evaluate a Python expression (params: expression)
+- code.list_files: list sandbox files
+- code.read_file: read a sandbox file (params: name)
+- web.search: search the web (params: query, num?)
+- web.read_page: read a web page (params: url)
+- web.fetch: fetch a URL (params: url, extract_text?)
+- web.research: deep research on a topic (params: topic, depth?)
 
 Output format: STRICT JSON, no markdown fences:
 {

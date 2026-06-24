@@ -6,7 +6,7 @@ import {
   Terminal, Image as ImageIcon, Brain, Cpu, Clock, Zap,
   ChevronRight, Circle, CheckCircle2, XCircle,
   Camera, FileText, Mail, Calendar, Globe, Monitor, MonitorSmartphone,
-  Lightbulb, Eye, Languages,
+  Lightbulb, Eye, Languages, Sparkles, Search, Code, Network,
 } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi, type TaskRecord } from "@/lib/agent-api";
@@ -479,6 +479,24 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Advanced capabilities card (new) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  {lang === "fr" ? "Capacités avancées" : "Advanced capabilities"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2.5">
+                <Capability icon={Sparkles} label={lang === "fr" ? "ReAct loop (auto-critique)" : "ReAct loop (self-critique)"} active />
+                <Capability icon={Code} label={lang === "fr" ? "Code interpreter (Python sandbox)" : "Code interpreter (Python sandbox)"} active />
+                <Capability icon={Search} label={lang === "fr" ? "Recherche web temps réel" : "Real-time web search"} active />
+                <Capability icon={Network} label={lang === "fr" ? "Orchestrateur multi-agents" : "Multi-agent orchestrator"} active />
+                <Capability icon={Brain} label={lang === "fr" ? "Skill library (apprentissage)" : "Skill library (learning)"} active />
+                <Capability icon={Zap} label={lang === "fr" ? "Tool calling natif GLM" : "Native GLM tool calling"} active />
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>
@@ -522,6 +540,16 @@ function MemoryRow({ label, value }: { label: string; value: number }) {
   );
 }
 
+function Capability({ icon: Icon, label, active }: { icon: typeof Sparkles; label: string; active: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+      <span className="flex-1">{label}</span>
+      <Circle className={cn("w-1.5 h-1.5 fill-current flex-shrink-0", active ? "text-emerald-500" : "text-zinc-600")} />
+    </div>
+  );
+}
+
 function LogLine({ log }: { log: { timestamp: string; level: string; logger: string; message: string } }) {
   const levelColors: Record<string, string> = {
     DEBUG: "text-zinc-500",
@@ -554,6 +582,9 @@ function TaskItem({
   const result = task.result;
   const steps = plan?.plan || [];
   const results = result?.results || [];
+  const reactTrace = (result as Record<string, unknown>)?.react_trace as Array<Record<string, unknown>> | undefined;
+  const skillsSaved = (result as Record<string, unknown>)?.skills_saved as Array<Record<string, unknown>> | undefined;
+  const isReactMode = (plan as Record<string, unknown>)?.react_mode === true;
   const time = task.timestamp ? new Date(task.timestamp * 1000).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "";
 
   return (
@@ -563,21 +594,90 @@ function TaskItem({
                  : <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />}
         <div className="flex-1 min-w-0">
           <p className="text-sm truncate">{task.request}</p>
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
             <span>{time}</span>
             {task.source && (<><span>·</span><Badge variant="outline" className="text-[10px] py-0 h-4">{task.source}</Badge></>)}
             {result && (<><span>·</span><span>{result.succeeded}/{result.total_steps} {tr("dash.steps_label")}</span></>)}
+            {isReactMode && (
+              <Badge variant="outline" className="text-[10px] py-0 h-4 bg-primary/10 text-primary border-primary/30">
+                <Sparkles className="w-2.5 h-2.5 mr-1" /> ReAct
+              </Badge>
+            )}
+            {skillsSaved && skillsSaved.length > 0 && (
+              <Badge variant="outline" className="text-[10px] py-0 h-4 bg-amber-500/10 text-amber-400 border-amber-500/30">
+                <Sparkles className="w-2.5 h-2.5 mr-1" /> {skillsSaved.length} skill{skillsSaved.length > 1 ? "s" : ""}
+              </Badge>
+            )}
           </div>
         </div>
         <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", expanded && "rotate-90")} />
       </button>
 
       {expanded && (
-        <div className="mt-3 ml-7 space-y-2">
+        <div className="mt-3 ml-7 space-y-3">
           {plan?.understanding && (
             <p className="text-xs text-muted-foreground italic">💡 {plan.understanding}</p>
           )}
-          {steps.length > 0 && (
+
+          {/* ReAct trace (new) */}
+          {reactTrace && reactTrace.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-primary uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                ReAct Trace ({reactTrace.length} turns)
+              </p>
+              <div className="border border-border rounded-md p-3 bg-card/50 space-y-2 max-h-80 overflow-y-auto">
+                {reactTrace.map((entry, idx) => {
+                  const thought = String(entry.thought || "");
+                  const action = String(entry.action || "");
+                  const observation = String(entry.observation || "");
+                  const critique = String(entry.critique || "");
+                  const ok = entry.success as boolean;
+                  return (
+                    <div key={idx} className="text-xs space-y-1 pb-2 border-b border-border last:border-0 last:pb-0">
+                      <div className="flex items-start gap-2">
+                        <span className="font-mono text-muted-foreground">T{String(entry.turn || idx + 1)}.</span>
+                        {ok === true && <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 flex-shrink-0" />}
+                        {ok === false && <XCircle className="w-3 h-3 text-red-500 mt-0.5 flex-shrink-0" />}
+                        {ok === undefined && <Circle className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-foreground/90 italic">💭 {thought}</p>
+                          {action && (
+                            <p className="font-mono text-primary text-[11px] mt-0.5">→ {action}</p>
+                          )}
+                          {observation && (
+                            <p className="text-muted-foreground text-[11px] mt-0.5">👁 {observation.slice(0, 200)}</p>
+                          )}
+                          {critique && (
+                            <p className="text-amber-400/70 text-[11px] mt-0.5">✓ {critique.slice(0, 150)}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Skills saved (new) */}
+          {skillsSaved && skillsSaved.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Skills learned
+              </p>
+              {skillsSaved.map((s, idx) => (
+                <div key={idx} className="text-xs bg-amber-500/5 border border-amber-500/20 rounded p-2">
+                  <p className="font-mono text-amber-400">{String(s.name || "")}</p>
+                  <p className="text-muted-foreground">{String(s.description || "")}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Original plan (for non-ReAct tasks) */}
+          {steps.length > 0 && !isReactMode && (
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 {tr("dash.plan_label")} ({steps.length} {tr("dash.steps_label")})
