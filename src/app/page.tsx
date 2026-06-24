@@ -1,53 +1,56 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot, Activity, Send, Play, Pause, RefreshCw,
   Terminal, Image as ImageIcon, Brain, Cpu, Clock, Zap,
   ChevronRight, Circle, CheckCircle2, XCircle,
   Camera, FileText, Mail, Calendar, Globe, Monitor, MonitorSmartphone,
   Lightbulb, Eye, Languages, Sparkles, Search, Code, Network,
-  Mic, Plug, Radio, MessageSquare,
+  Mic, Plug, Radio, MessageSquare, Command, Volume2,
 } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi, type TaskRecord } from "@/lib/agent-api";
 import { t, detectBrowserLang, setStoredLang, stateLabel, type Lang } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  AnimatedCounter, StateOrb, GlassCard, StatPill, ModuleTile,
+  ThinkingStream, TaskCard, CommandPalette, ParticleBackground, VoiceWaveform,
+} from "@/components/agent";
 
-const STATE_COLORS: Record<string, string> = {
-  idle: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  planning: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  executing: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30",
-  paused: "bg-zinc-500/15 text-zinc-400 border-zinc-500/30",
-  error: "bg-red-500/15 text-red-400 border-red-500/30",
-  stopped: "bg-red-500/15 text-red-400 border-red-500/30",
-};
+const MODULES_LIST = ["screen", "files", "email", "calendar", "browser", "system", "windows", "code", "web", "voice", "plugin", "mcp", "vision", "slack"];
 
-const MODULE_ICONS: Record<string, typeof FileText> = {
-  screen: Monitor,
-  files: FileText,
-  email: Mail,
-  calendar: Calendar,
-  browser: Globe,
-  system: Cpu,
-  windows: MonitorSmartphone,
-  slack: Send,
-};
+const CAPABILITIES = [
+  { icon: Sparkles, label_en: "ReAct loop", label_fr: "Boucle ReAct", color: "#10B981" },
+  { icon: Code, label_en: "Code interpreter", label_fr: "Interpréteur code", color: "#06B6D4" },
+  { icon: Search, label_en: "Web search", label_fr: "Recherche web", color: "#06B6D4" },
+  { icon: Network, label_en: "Multi-agent", label_fr: "Multi-agent", color: "#EC4899" },
+  { icon: Brain, label_en: "Skill library", label_fr: "Bibliothèque skills", color: "#10B981" },
+  { icon: Zap, label_en: "GLM tool calling", label_fr: "GLM tool calling", color: "#F59E0B" },
+  { icon: Mic, label_en: "Voice control", label_fr: "Contrôle vocal", color: "#F59E0B" },
+  { icon: MessageSquare, label_en: "Long context", label_fr: "Contexte long", color: "#8B5CF6" },
+  { icon: Plug, label_en: "Plugin marketplace", label_fr: "Marché plugins", color: "#8B5CF6" },
+  { icon: Network, label_en: "MCP protocol", label_fr: "Protocole MCP", color: "#EC4899" },
+  { icon: Radio, label_en: "Vision streaming", label_fr: "Vision streaming", color: "#10B981" },
+  { icon: Cpu, label_en: "100% Windows", label_fr: "100% Windows", color: "#3B82F6" },
+];
+
+const QUICK_ACTIONS = [
+  { icon: FileText, label_en: "Sort Downloads", label_fr: "Trier Téléch.", prompt_en: "Organize my Downloads folder by file type", prompt_fr: "Organise mon dossier Téléchargements par type de fichier", color: "#10B981" },
+  { icon: Mail, label_en: "Read emails", label_fr: "Lire emails", prompt_en: "Read my 5 latest unread emails and summarize them", prompt_fr: "Lis mes 5 derniers emails non lus et fais-moi un résumé", color: "#F59E0B" },
+  { icon: Calendar, label_en: "Events", label_fr: "Événements", prompt_en: "List my 10 upcoming calendar events", prompt_fr: "Liste mes 10 prochains événements de calendrier", color: "#8B5CF6" },
+  { icon: Monitor, label_en: "Describe screen", label_fr: "Décrire écran", prompt_en: "Describe what's currently on my screen", prompt_fr: "Décris ce qu'il y a actuellement sur mon écran", color: "#06B6D4" },
+  { icon: Cpu, label_en: "System info", label_fr: "Infos système", prompt_en: "Give me system info (CPU, RAM, disk)", prompt_fr: "Donne-moi les informations système (CPU, RAM, disque)", color: "#EC4899" },
+  { icon: Camera, label_en: "Screenshot", label_fr: "Capture", prompt_en: "Take a screenshot and analyze it", prompt_fr: "Prends une capture d'écran et analyse-la", color: "#10B981" },
+];
 
 export default function Dashboard() {
-  // Detect language on first render (no flashing)
   const [lang, setLang] = useState<Lang>("en");
-  useEffect(() => {
-    setLang(detectBrowserLang());
-  }, []);
+  useEffect(() => setLang(detectBrowserLang()), []);
 
   const { status, logs, progress, connected, refresh } = useAgent();
   const { toast } = useToast();
@@ -55,657 +58,515 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState<TaskRecord[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [screenshots, setScreenshots] = useState<Array<{ name: string; size: number; modified: number }>>([]);
-  const [activeTab, setActiveTab] = useState("tasks");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [activeView, setActiveView] = useState<"stream" | "tasks" | "logs" | "screens">("stream");
+  const [liveTrace, setLiveTrace] = useState<Array<Record<string, unknown>>>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   const tr = useCallback((key: string, vars?: Record<string, string | number>) => t(key, lang, vars), [lang]);
 
-  const QUICK_TASKS = useMemo(() => [
-    { icon: FileText, label: tr("dash.quick_sort_downloads"), prompt: lang === "fr" ? "Organise mon dossier Téléchargements par type de fichier" : "Organize my Downloads folder by file type" },
-    { icon: Mail, label: tr("dash.quick_read_emails"), prompt: lang === "fr" ? "Lis mes 5 derniers emails non lus et fais-moi un résumé" : "Read my 5 latest unread emails and summarize them" },
-    { icon: Calendar, label: tr("dash.quick_events"), prompt: lang === "fr" ? "Liste mes 10 prochains événements de calendrier" : "List my 10 upcoming calendar events" },
-    { icon: Monitor, label: tr("dash.quick_describe_screen"), prompt: lang === "fr" ? "Décris ce qu'il y a actuellement sur mon écran" : "Describe what's currently on my screen" },
-    { icon: Cpu, label: tr("dash.quick_system_info"), prompt: lang === "fr" ? "Donne-moi les informations système (CPU, RAM, disque)" : "Give me system info (CPU, RAM, disk)" },
-    { icon: Camera, label: tr("dash.quick_screenshot"), prompt: lang === "fr" ? "Prends une capture d'écran et analyse-la" : "Take a screenshot and analyze it" },
-  ], [tr, lang]);
+  // Cmd+K shortcut
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
-  // Load tasks + screenshots periodically
+  // Load data
   const loadData = useCallback(async () => {
     try {
       const [tasksRes, shotsRes] = await Promise.all([
-        agentApi.recentTasks(30).catch(() => ({ tasks: [] as TaskRecord[] })),
-        agentApi.screenshots(12).catch(() => ({ screenshots: [] })),
+        agentApi.recentTasks(20).catch(() => ({ tasks: [] as TaskRecord[] })),
+        agentApi.screenshots(8).catch(() => ({ screenshots: [] })),
       ]);
       setTasks(tasksRes.tasks || []);
       setScreenshots(shotsRes.screenshots || []);
-    } catch {
-      // silent
-    }
+    } catch {}
   }, []);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000);
-    return () => clearInterval(interval);
+    const i = setInterval(loadData, 5000);
+    return () => clearInterval(i);
   }, [loadData, progress]);
 
-  // Auto-scroll logs
+  // Update live trace from progress events
   useEffect(() => {
-    if (activeTab === "logs" && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (progress.length === 0) return;
+    const lastEvent = progress[progress.length - 1];
+    if (lastEvent.event === "react_thought" || lastEvent.event === "react_step") {
+      setLiveTrace(prev => {
+        const newEntry: Record<string, unknown> = {
+          turn: (lastEvent as Record<string, unknown>).turn,
+          thought: (lastEvent as Record<string, unknown>).thought,
+          action: (lastEvent as Record<string, unknown>).action,
+          observation: (lastEvent as Record<string, unknown>).observation,
+          success: (lastEvent as Record<string, unknown>).success,
+        };
+        return [...prev.slice(-30), newEntry];
+      });
     }
-  }, [logs, activeTab]);
+    if (lastEvent.event === "task_end" || lastEvent.event === "task_start") {
+      setTimeout(() => { setLiveTrace([]); refresh(); loadData(); }, 500);
+    }
+  }, [progress, refresh, loadData]);
 
-  const submitTask = async () => {
-    if (!taskInput.trim()) return;
+  useEffect(() => {
+    if (activeView === "logs" && logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [logs, activeView]);
+
+  const submitTask = async (text?: string) => {
+    const request = (text || taskInput).trim();
+    if (!request) return;
     setSubmitting(true);
     try {
-      const res = await agentApi.submitTask(taskInput, "dashboard");
-      toast({ title: tr("toast.task_sent"), description: `ID: ${res.task_id}` });
+      await agentApi.submitTask(request, "dashboard");
       setTaskInput("");
+      setLiveTrace([]);
+      setActiveView("stream");
+      toast({ title: lang === "fr" ? "Tâche envoyée" : "Task sent" });
       setTimeout(loadData, 500);
     } catch (e) {
-      toast({
-        title: tr("toast.error"),
-        description: e instanceof Error ? e.message : "",
-        variant: "destructive",
-      });
-    } finally {
-      setSubmitting(false);
-    }
+      toast({ title: tr("toast.error"), description: e instanceof Error ? e.message : "", variant: "destructive" });
+    } finally { setSubmitting(false); }
   };
 
   const sendCommand = async (cmd: "pause" | "resume" | "stop" | "start") => {
     try {
       await agentApi.command(cmd);
-      toast({ title: `${tr("toast.command_sent")}: ${cmd}` });
       setTimeout(refresh, 200);
-    } catch (e) {
-      toast({
-        title: tr("toast.error"),
-        description: e instanceof Error ? e.message : "",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const captureScreenshot = async () => {
-    try {
-      await agentApi.captureScreenshot();
-      toast({ title: tr("toast.captured") });
-      setTimeout(loadData, 500);
-    } catch {
-      toast({
-        title: tr("toast.error"),
-        description: tr("toast.agent_offline"),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const toggleLang = () => {
-    const newLang: Lang = lang === "fr" ? "en" : "fr";
-    setLang(newLang);
-    setStoredLang(newLang);
+    } catch {}
   };
 
   const state = status?.state ?? "stopped";
   const currentTask = status?.current_task;
   const memory = status?.memory;
+  const isLive = state === "planning" || state === "executing";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      <ParticleBackground />
+
       {/* Header */}
-      <header className="border-b border-border bg-card/30 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <div className="absolute inset-0 bg-primary/30 blur-md rounded-lg" />
-              <div className="relative w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center">
-                <Bot className="w-5 h-5 text-primary" />
-              </div>
-            </div>
+      <header className="sticky top-0 z-40 glass-strong border-b border-border/50">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <motion.div
+              className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/30 to-accent/30 border border-primary/40 flex items-center justify-center"
+              animate={{ boxShadow: ["0 0 20px oklch(0.78 0.18 165 / 0.3)", "0 0 30px oklch(0.78 0.18 165 / 0.5)", "0 0 20px oklch(0.78 0.18 165 / 0.3)"] }}
+              transition={{ duration: 3, repeat: Infinity }}
+            >
+              <Bot className="w-5 h-5 text-primary" />
+            </motion.div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight">Z.AGENT</h1>
-              <p className="text-xs text-muted-foreground">{tr("dash.subtitle")}</p>
+              <h1 className="text-base font-bold tracking-tight leading-none">
+                Z.AGENT
+                <span className="ml-2 text-[10px] font-mono text-muted-foreground">v3.0</span>
+              </h1>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {connected ? "● connected" : "○ offline"}
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Language toggle */}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={toggleLang}
-              className="gap-1.5 font-mono text-xs"
-              title="Switch language"
-            >
-              <Languages className="w-4 h-4" />
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setPaletteOpen(true)} className="gap-2 text-xs">
+              <Command className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === "fr" ? "Commande" : "Command"}</span>
+              <kbd className="text-[9px] font-mono bg-muted/60 px-1 py-0.5 rounded">⌘K</kbd>
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setLang(lang === "fr" ? "en" : "fr")} className="gap-1.5 font-mono text-xs px-2">
+              <Languages className="w-3.5 h-3.5" />
               {lang.toUpperCase()}
             </Button>
-
-            <div className="flex items-center gap-2 text-xs">
-              <Circle
-                className={cn(
-                  "w-2 h-2 fill-current",
-                  connected ? "text-emerald-500" : "text-red-500"
-                )}
-              />
-              <span className="text-muted-foreground">
-                {connected ? tr("dash.connected") : tr("dash.offline")}
-              </span>
-            </div>
-            <Badge
-              variant="outline"
-              className={cn("font-mono uppercase", STATE_COLORS[state])}
-            >
-              {stateLabel(state, lang)}
-            </Badge>
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => sendCommand("pause")}
-                disabled={state !== "idle" && state !== "executing"}
-                title="Pause"
-              >
-                <Pause className="w-4 h-4" />
+            <div className="flex gap-0.5 border-l border-border pl-2 ml-1">
+              <Button size="sm" variant="ghost" onClick={() => sendCommand("pause")} disabled={!isLive && state !== "idle"} className="h-8 w-8 p-0">
+                <Pause className="w-3.5 h-3.5" />
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => sendCommand("resume")}
-                disabled={state !== "paused"}
-                title="Resume"
-              >
-                <Play className="w-4 h-4" />
+              <Button size="sm" variant="ghost" onClick={() => sendCommand("resume")} disabled={state !== "paused"} className="h-8 w-8 p-0">
+                <Play className="w-3.5 h-3.5" />
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={refresh}
-                title="Refresh"
-              >
-                <RefreshCw className="w-4 h-4" />
+              <Button size="sm" variant="ghost" onClick={refresh} className="h-8 w-8 p-0">
+                <RefreshCw className="w-3.5 h-3.5" />
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
-        {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          <StatCard icon={Activity} label={tr("label.state")} value={stateLabel(state, lang)} color={STATE_COLORS[state] || ""} />
-          <StatCard icon={Clock} label={tr("label.queue")} value={String(status?.queue_size ?? 0)} />
-          <StatCard icon={Brain} label={tr("dash.facts")} value={String(memory?.facts_count ?? 0)} />
-          <StatCard icon={Zap} label={tr("dash.tasks")} value={String(memory?.tasks_count ?? 0)} />
-          <StatCard icon={Cpu} label={tr("label.uptime")} value={`${Math.floor((status?.uptime_s ?? 0) / 60)}m`} />
-          <StatCard icon={Terminal} label={tr("label.logs")} value={String(logs.length)} />
-        </div>
+      <main className="container mx-auto px-4 py-6">
+        {/* Hero strip — State orb + stats */}
+        <motion.div
+          className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <GlassCard className="lg:col-span-3 p-6 flex flex-col items-center justify-center" glow={isLive}>
+            <StateOrb state={state} lang={lang} />
+          </GlassCard>
+
+          <div className="lg:col-span-9 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <StatPill icon={Activity} label={tr("label.state")} value={stateLabel(state, lang)} color="#10B981" />
+            <StatPill icon={Clock} label={tr("label.queue")} value={status?.queue_size ?? 0} color="#06B6D4" />
+            <StatPill icon={Brain} label={tr("dash.facts")} value={memory?.facts_count ?? 0} color="#8B5CF6" />
+            <StatPill icon={Zap} label={tr("dash.tasks")} value={memory?.tasks_count ?? 0} color="#F59E0B" />
+            <StatPill icon={Cpu} label={tr("label.uptime")} value={`${Math.floor((status?.uptime_s ?? 0) / 60)}m`} color="#EC4899" />
+          </div>
+        </motion.div>
 
         {/* Main grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Task submission + current task */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Send className="w-4 h-4 text-primary" />
-                  {tr("dash.submit_task")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  placeholder={tr("dash.task_placeholder")}
-                  value={taskInput}
-                  onChange={(e) => setTaskInput(e.target.value)}
-                  rows={3}
-                  className="resize-none"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitTask();
-                  }}
-                />
-                <div className="flex flex-wrap gap-2">
-                  {QUICK_TASKS.map((qt) => {
-                    const Icon = qt.icon;
-                    return (
-                      <button
-                        key={qt.label}
-                        onClick={() => setTaskInput(qt.prompt)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs border border-border bg-card hover:bg-accent hover:text-accent-foreground transition-colors"
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left sidebar — Modules + Capabilities */}
+          <div className="lg:col-span-3 space-y-4">
+            <GlassCard className="p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                <Cpu className="w-3.5 h-3.5" />
+                {lang === "fr" ? "Modules" : "Modules"}
+              </h3>
+              <div className="grid grid-cols-3 gap-2">
+                {MODULES_LIST.map((m, i) => (
+                  <motion.div
+                    key={m}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.03 }}
+                  >
+                    <ModuleTile name={m} />
+                  </motion.div>
+                ))}
+              </div>
+            </GlassCard>
+
+            <GlassCard className="p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5" />
+                {lang === "fr" ? "Capacités" : "Capabilities"}
+              </h3>
+              <div className="space-y-2">
+                {CAPABILITIES.map((cap, i) => {
+                  const Icon = cap.icon;
+                  return (
+                    <motion.div
+                      key={i}
+                      className="flex items-center gap-2.5 text-xs group"
+                      initial={{ opacity: 0, x: -5 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 + i * 0.03 }}
+                    >
+                      <div
+                        className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110"
+                        style={{ background: `${cap.color}15`, border: `1px solid ${cap.color}30` }}
                       >
-                        <Icon className="w-3 h-3" />
-                        {qt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">
-                    ⌘/Ctrl+Enter
-                  </span>
-                  <Button onClick={submitTask} disabled={!taskInput.trim() || submitting}>
-                    <Send className="w-4 h-4 mr-2" />
-                    {submitting ? tr("dash.sending") : tr("dash.send")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Current task */}
-            {currentTask && (
-              <Card className="border-primary/30">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                    {tr("dash.current_task")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Badge variant="outline" className="font-mono text-xs">{currentTask.id}</Badge>
-                      <Badge variant="secondary" className="text-xs">{tr("label.via")} {currentTask.source}</Badge>
-                    </div>
-                    <p className="text-sm">{currentTask.request}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="tasks">
-                  <FileText className="w-4 h-4 mr-2" />
-                  {tr("dash.tasks")} ({tasks.length})
-                </TabsTrigger>
-                <TabsTrigger value="logs">
-                  <Terminal className="w-4 h-4 mr-2" />
-                  {tr("dash.logs")} ({logs.length})
-                </TabsTrigger>
-                <TabsTrigger value="screens">
-                  <ImageIcon className="w-4 h-4 mr-2" />
-                  {tr("dash.screenshots")} ({screenshots.length})
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="tasks" className="mt-4">
-                <Card>
-                  <CardContent className="p-0">
-                    <ScrollArea className="h-[500px]">
-                      {tasks.length === 0 ? (
-                        <div className="p-8 text-center text-muted-foreground text-sm">
-                          <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                          {tr("dash.no_tasks")}
-                        </div>
-                      ) : (
-                        <div className="divide-y divide-border">
-                          {tasks.map((task, idx) => (
-                            <TaskItem key={task.task_id || idx} task={task} lang={lang} tr={tr} />
-                          ))}
-                        </div>
-                      )}
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="logs" className="mt-4">
-                <Card>
-                  <CardContent className="p-0">
-                    <ScrollArea className="h-[500px]">
-                      <div className="font-mono text-xs p-3 space-y-0.5">
-                        {logs.length === 0 ? (
-                          <div className="p-8 text-center text-muted-foreground">
-                            <Terminal className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                            {tr("dash.no_logs")}
-                          </div>
-                        ) : (
-                          logs.map((log, idx) => <LogLine key={idx} log={log} />)
-                        )}
-                        <div ref={logsEndRef} />
+                        <Icon className="w-3 h-3" style={{ color: cap.color }} />
                       </div>
-                    </ScrollArea>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="screens" className="mt-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <p className="text-sm text-muted-foreground">{tr("dash.vlm_description")}</p>
-                      <Button size="sm" variant="outline" onClick={captureScreenshot}>
-                        <Camera className="w-4 h-4 mr-2" />
-                        {tr("dash.capture_now")}
-                      </Button>
-                    </div>
-                    {screenshots.length === 0 ? (
-                      <div className="p-8 text-center text-muted-foreground text-sm">
-                        <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        {tr("dash.no_screenshots")}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        {screenshots.map((shot) => (
-                          <ScreenshotTile key={shot.name} shot={shot} />
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+                      <span className="text-foreground/80">
+                        {lang === "fr" ? cap.label_fr : cap.label_en}
+                      </span>
+                      <Circle className="w-1 h-1 fill-emerald-500 text-emerald-500 ml-auto flex-shrink-0" />
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </GlassCard>
           </div>
 
-          {/* Right: Memory + modules */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Brain className="w-4 h-4 text-primary" />
-                  {tr("dash.memory")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <MemoryRow label={tr("dash.facts")} value={memory?.facts_count ?? 0} />
-                <MemoryRow label={tr("dash.preferences")} value={memory?.preferences_count ?? 0} />
-                <MemoryRow label={tr("dash.shortcuts")} value={memory?.shortcuts_count ?? 0} />
-                <Separator />
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">{tr("dash.recent_tasks")}</p>
-                  <div className="space-y-1.5">
-                    {memory?.recent_tasks?.map((task, idx) => (
-                      <div key={idx} className="flex items-center gap-2 text-xs">
-                        {(task as Record<string, unknown>).success ? (
-                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+          {/* Center — main interaction */}
+          <div className="lg:col-span-6 space-y-4">
+            {/* Task input */}
+            <GlassCard className="p-4" glow={isLive}>
+              <div className="flex items-center gap-2 mb-3">
+                <Send className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold">{tr("dash.submit_task")}</h3>
+                {isLive && (
+                  <motion.span
+                    className="ml-auto text-[10px] font-mono uppercase text-primary flex items-center gap-1"
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  >
+                    <VoiceWaveform active={isLive} />
+                    {lang === "fr" ? "agent actif" : "agent busy"}
+                  </motion.span>
+                )}
+              </div>
+              <Textarea
+                placeholder={tr("dash.task_placeholder")}
+                value={taskInput}
+                onChange={e => setTaskInput(e.target.value)}
+                rows={2}
+                className="resize-none bg-background/50 border-border/50 focus:border-primary/50"
+                onKeyDown={e => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitTask();
+                }}
+              />
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {QUICK_ACTIONS.map(qa => {
+                  const Icon = qa.icon;
+                  return (
+                    <button
+                      key={qa.label_en}
+                      onClick={() => setTaskInput(lang === "fr" ? qa.prompt_fr : qa.prompt_en)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border border-border/50 bg-card/30 hover:bg-accent/30 transition-all hover:scale-105"
+                      style={{ borderColor: `${qa.color}30` }}
+                    >
+                      <Icon className="w-3 h-3" style={{ color: qa.color }} />
+                      {lang === "fr" ? qa.label_fr : qa.label_en}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between items-center mt-3">
+                <span className="text-[10px] text-muted-foreground font-mono">⌘+Enter · ⌘K</span>
+                <Button
+                  size="sm"
+                  onClick={() => submitTask()}
+                  disabled={!taskInput.trim() || submitting}
+                  className="gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  {submitting ? (lang === "fr" ? "Envoi..." : "Sending...") : tr("dash.send")}
+                </Button>
+              </div>
+            </GlassCard>
+
+            {/* Current task banner */}
+            {currentTask && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <GlassCard className="p-4 border-primary/30" glow>
+                  <div className="flex items-center gap-2 mb-2">
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-primary"
+                      animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
+                    <span className="text-xs font-semibold text-primary uppercase tracking-wider">
+                      {tr("dash.current_task")}
+                    </span>
+                  </div>
+                  <p className="text-sm">{currentTask.request}</p>
+                </GlassCard>
+              </motion.div>
+            )}
+
+            {/* View tabs */}
+            <div className="flex gap-1 border-b border-border/50">
+              {[
+                { id: "stream", label: lang === "fr" ? "Raisonnement" : "Thinking", icon: Brain, count: liveTrace.length },
+                { id: "tasks", label: tr("dash.tasks"), icon: FileText, count: tasks.length },
+                { id: "logs", label: tr("dash.logs"), icon: Terminal, count: logs.length },
+                { id: "screens", label: tr("dash.screenshots"), icon: ImageIcon, count: screenshots.length },
+              ].map(tab => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveView(tab.id as typeof activeView)}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 text-xs font-medium border-b-2 transition-all relative",
+                      activeView === tab.id
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span className="text-[9px] font-mono bg-muted/60 px-1.5 py-0.5 rounded">
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* View content */}
+            <div className="min-h-[400px]">
+              <AnimatePresence mode="wait">
+                {activeView === "stream" && (
+                  <motion.div key="stream" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <GlassCard className="p-4">
+                      <ThinkingStream traces={liveTrace} live={isLive} />
+                    </GlassCard>
+                  </motion.div>
+                )}
+
+                {activeView === "tasks" && (
+                  <motion.div key="tasks" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2">
+                    {tasks.length === 0 ? (
+                      <GlassCard className="p-8 text-center text-sm text-muted-foreground">
+                        <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                        {tr("dash.no_tasks")}
+                      </GlassCard>
+                    ) : (
+                      tasks.map((task, i) => <TaskCard key={task.task_id || i} task={task as Record<string, unknown>} lang={lang} />)
+                    )}
+                  </motion.div>
+                )}
+
+                {activeView === "logs" && (
+                  <motion.div key="logs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <GlassCard className="p-3 font-mono text-xs max-h-[500px] overflow-y-auto">
+                      {logs.length === 0 ? (
+                        <div className="p-8 text-center text-muted-foreground">
+                          <Terminal className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                          {tr("dash.no_logs")}
+                        </div>
+                      ) : (
+                        logs.map((log, i) => {
+                          const colors: Record<string, string> = {
+                            INFO: "text-emerald-400", WARNING: "text-amber-400",
+                            ERROR: "text-red-400", DEBUG: "text-zinc-500",
+                          };
+                          const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString(undefined, { hour12: false }) : "";
+                          return (
+                            <div key={i} className="flex gap-2 leading-relaxed hover:bg-accent/20 -mx-1 px-1 rounded">
+                              <span className="text-zinc-600 flex-shrink-0">{time}</span>
+                              <span className={cn("flex-shrink-0 w-12", colors[log.level] || "text-zinc-400")}>{log.level}</span>
+                              <span className="text-zinc-500 flex-shrink-0 w-16 truncate">{log.logger}</span>
+                              <span className="text-foreground/90 break-all">{log.message}</span>
+                            </div>
+                          );
+                        })
+                      )}
+                      <div ref={logsEndRef} />
+                    </GlassCard>
+                  </motion.div>
+                )}
+
+                {activeView === "screens" && (
+                  <motion.div key="screens" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                    <GlassCard className="p-4">
+                      {screenshots.length === 0 ? (
+                        <div className="p-8 text-center text-sm text-muted-foreground">
+                          <ImageIcon className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                          {tr("dash.no_screenshots")}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {screenshots.map(shot => <ScreenshotTile key={shot.name} shot={shot} />)}
+                        </div>
+                      )}
+                    </GlassCard>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* Right — Memory + tip */}
+          <div className="lg:col-span-3 space-y-4">
+            <GlassCard className="p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                <Brain className="w-3.5 h-3.5" />
+                {tr("dash.memory")}
+              </h3>
+              <div className="space-y-3">
+                <MemoryBar label={tr("dash.facts")} value={memory?.facts_count ?? 0} max={100} color="#8B5CF6" />
+                <MemoryBar label={tr("dash.preferences")} value={memory?.preferences_count ?? 0} max={20} color="#06B6D4" />
+                <MemoryBar label={tr("dash.shortcuts")} value={memory?.shortcuts_count ?? 0} max={50} color="#F59E0B" />
+              </div>
+              <div className="mt-4 pt-3 border-t border-border/50">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">
+                  {tr("dash.recent_tasks")}
+                </p>
+                <div className="space-y-1">
+                  {memory?.recent_tasks?.slice(0, 5).map((task, i) => {
+                    const t = task as Record<string, unknown>;
+                    return (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        {t.success ? (
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500 flex-shrink-0" />
                         ) : (
-                          <XCircle className="w-3 h-3 text-red-500" />
+                          <XCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
                         )}
-                        <span className="truncate">
-                          {String((task as Record<string, unknown>).request || "").slice(0, 40)}
+                        <span className="truncate text-muted-foreground">
+                          {String(t.request || "").slice(0, 35)}
                         </span>
                       </div>
-                    )) ?? <p className="text-xs text-muted-foreground">{tr("misc.no_recent_tasks")}</p>}
-                  </div>
+                    );
+                  }) ?? (
+                    <p className="text-xs text-muted-foreground">{tr("misc.no_recent_tasks")}</p>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </GlassCard>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Cpu className="w-4 h-4 text-primary" />
-                  {tr("dash.modules")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(MODULE_ICONS).map(([name, Icon]) => (
-                    <div key={name} className="flex items-center gap-2 p-2 rounded-md border border-border bg-card/50">
-                      <Icon className="w-4 h-4 text-primary" />
-                      <span className="text-xs">{tr(`module.${name}`)}</span>
-                      <Circle className="w-1.5 h-1.5 fill-emerald-500 text-emerald-500 ml-auto" />
-                    </div>
-                  ))}
+            <GlassCard className="p-4 bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20">
+              <div className="flex items-start gap-3">
+                <Lightbulb className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold mb-1">{tr("misc.tip_title")}</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {tr("misc.tip_body")}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </GlassCard>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Eye className="w-4 h-4 text-primary" />
-                  {tr("dash.vlm_perception")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground mb-3">{tr("dash.vlm_description")}</p>
-                <Button size="sm" variant="outline" className="w-full" onClick={captureScreenshot}>
-                  <Camera className="w-4 h-4 mr-2" />
-                  {tr("dash.analyze_screen")}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-primary/5 to-accent/5 border-primary/20">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-medium">{tr("misc.tip_title")}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{tr("misc.tip_body")}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Advanced capabilities card (new) */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Sparkles className="w-4 h-4 text-primary" />
-                  {lang === "fr" ? "Capacités avancées" : "Advanced capabilities"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2.5">
-                <Capability icon={Sparkles} label={lang === "fr" ? "ReAct loop (auto-critique)" : "ReAct loop (self-critique)"} active />
-                <Capability icon={Code} label={lang === "fr" ? "Code interpreter (Python sandbox)" : "Code interpreter (Python sandbox)"} active />
-                <Capability icon={Search} label={lang === "fr" ? "Recherche web temps réel" : "Real-time web search"} active />
-                <Capability icon={Network} label={lang === "fr" ? "Orchestrateur multi-agents" : "Multi-agent orchestrator"} active />
-                <Capability icon={Brain} label={lang === "fr" ? "Skill library (apprentissage)" : "Skill library (learning)"} active />
-                <Capability icon={Zap} label={lang === "fr" ? "Tool calling natif GLM" : "Native GLM tool calling"} active />
-                <Capability icon={Mic} label={lang === "fr" ? "Voice control (Whisper STT/TTS)" : "Voice control (Whisper STT/TTS)"} active />
-                <Capability icon={MessageSquare} label={lang === "fr" ? "Contexte conversation long terme" : "Long-term conversation context"} active />
-                <Capability icon={Plug} label={lang === "fr" ? "Plugin marketplace" : "Plugin marketplace"} active />
-                <Capability icon={Network} label="MCP (Model Context Protocol)" active />
-                <Capability icon={Radio} label={lang === "fr" ? "Vision streaming continu" : "Continuous vision streaming"} active />
-              </CardContent>
-            </Card>
+            <GlassCard className="p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                <Eye className="w-3.5 h-3.5" />
+                {tr("dash.vlm_perception")}
+              </h3>
+              <p className="text-[11px] text-muted-foreground mb-3">
+                {tr("dash.vlm_description")}
+              </p>
+              <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => {
+                agentApi.captureScreenshot().then(() => setTimeout(loadData, 500)).catch(() => {});
+              }}>
+                <Camera className="w-3.5 h-3.5" />
+                {tr("dash.analyze_screen")}
+              </Button>
+            </GlassCard>
           </div>
         </div>
       </main>
 
-      <footer className="border-t border-border mt-12 py-4">
-        <div className="container mx-auto px-4 flex justify-between items-center text-xs text-muted-foreground">
-          <span>Z.AGENT v1.1.0 — {lang === "fr" ? "propulsé par z.ai GLM" : "powered by z.ai GLM"}</span>
-          <span className="font-mono">{connected ? "●" : "○"} {state}</span>
+      <footer className="border-t border-border/50 mt-12 py-4">
+        <div className="container mx-auto px-4 flex justify-between items-center text-[10px] text-muted-foreground font-mono">
+          <span>Z.AGENT v3.0 · {lang === "fr" ? "propulsé par z.ai GLM" : "powered by z.ai GLM"}</span>
+          <span className="flex items-center gap-1.5">
+            <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-500" : "bg-red-500")} />
+            {state}
+          </span>
         </div>
       </footer>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onSubmit={submitTask} />
     </div>
   );
 }
 
 // === Sub-components ===
 
-function StatCard({
-  icon: Icon, label, value, color,
-}: {
-  icon: typeof Activity; label: string; value: string; color?: string;
-}) {
+function MemoryBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = Math.min((value / max) * 100, 100);
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-muted-foreground uppercase tracking-wider">{label}</span>
-          <Icon className="w-3.5 h-3.5 text-muted-foreground" />
-        </div>
-        <div className={cn("text-lg font-bold", color && "font-mono")}>{value}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MemoryRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-mono">{value}</span>
-    </div>
-  );
-}
-
-function Capability({ icon: Icon, label, active }: { icon: typeof Sparkles; label: string; active: boolean }) {
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <Icon className={cn("w-3.5 h-3.5 flex-shrink-0", active ? "text-primary" : "text-muted-foreground")} />
-      <span className="flex-1">{label}</span>
-      <Circle className={cn("w-1.5 h-1.5 fill-current flex-shrink-0", active ? "text-emerald-500" : "text-zinc-600")} />
-    </div>
-  );
-}
-
-function LogLine({ log }: { log: { timestamp: string; level: string; logger: string; message: string } }) {
-  const levelColors: Record<string, string> = {
-    DEBUG: "text-zinc-500",
-    INFO: "text-emerald-400",
-    WARNING: "text-amber-400",
-    ERROR: "text-red-400",
-    CRITICAL: "text-red-500",
-  };
-  const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString(undefined, { hour12: false }) : "";
-  return (
-    <div className="flex gap-2 leading-relaxed hover:bg-accent/20 -mx-1 px-1 rounded">
-      <span className="text-zinc-600 flex-shrink-0">{time}</span>
-      <span className={cn("flex-shrink-0 w-12", levelColors[log.level] || "text-zinc-400")}>{log.level}</span>
-      <span className="text-zinc-500 flex-shrink-0 w-20 truncate">{log.logger}</span>
-      <span className="text-foreground/90 break-all">{log.message}</span>
-    </div>
-  );
-}
-
-function TaskItem({
-  task, lang, tr,
-}: {
-  task: TaskRecord;
-  lang: Lang;
-  tr: (key: string, vars?: Record<string, string | number>) => string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const success = task.success;
-  const plan = task.plan;
-  const result = task.result;
-  const steps = plan?.plan || [];
-  const results = result?.results || [];
-  const reactTrace = (result as Record<string, unknown>)?.react_trace as Array<Record<string, unknown>> | undefined;
-  const skillsSaved = (result as Record<string, unknown>)?.skills_saved as Array<Record<string, unknown>> | undefined;
-  const isReactMode = (plan as Record<string, unknown>)?.react_mode === true;
-  const time = task.timestamp ? new Date(task.timestamp * 1000).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "";
-
-  return (
-    <div className="p-4 hover:bg-accent/20 transition-colors">
-      <button onClick={() => setExpanded(!expanded)} className="w-full text-left flex items-start gap-3">
-        {success ? <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                 : <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm truncate">{task.request}</p>
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
-            <span>{time}</span>
-            {task.source && (<><span>·</span><Badge variant="outline" className="text-[10px] py-0 h-4">{task.source}</Badge></>)}
-            {result && (<><span>·</span><span>{result.succeeded}/{result.total_steps} {tr("dash.steps_label")}</span></>)}
-            {isReactMode && (
-              <Badge variant="outline" className="text-[10px] py-0 h-4 bg-primary/10 text-primary border-primary/30">
-                <Sparkles className="w-2.5 h-2.5 mr-1" /> ReAct
-              </Badge>
-            )}
-            {skillsSaved && skillsSaved.length > 0 && (
-              <Badge variant="outline" className="text-[10px] py-0 h-4 bg-amber-500/10 text-amber-400 border-amber-500/30">
-                <Sparkles className="w-2.5 h-2.5 mr-1" /> {skillsSaved.length} skill{skillsSaved.length > 1 ? "s" : ""}
-              </Badge>
-            )}
-          </div>
-        </div>
-        <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", expanded && "rotate-90")} />
-      </button>
-
-      {expanded && (
-        <div className="mt-3 ml-7 space-y-3">
-          {plan?.understanding && (
-            <p className="text-xs text-muted-foreground italic">💡 {plan.understanding}</p>
-          )}
-
-          {/* ReAct trace (new) */}
-          {reactTrace && reactTrace.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-primary uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                ReAct Trace ({reactTrace.length} turns)
-              </p>
-              <div className="border border-border rounded-md p-3 bg-card/50 space-y-2 max-h-80 overflow-y-auto">
-                {reactTrace.map((entry, idx) => {
-                  const thought = String(entry.thought || "");
-                  const action = String(entry.action || "");
-                  const observation = String(entry.observation || "");
-                  const critique = String(entry.critique || "");
-                  const ok = entry.success as boolean;
-                  return (
-                    <div key={idx} className="text-xs space-y-1 pb-2 border-b border-border last:border-0 last:pb-0">
-                      <div className="flex items-start gap-2">
-                        <span className="font-mono text-muted-foreground">T{String(entry.turn || idx + 1)}.</span>
-                        {ok === true && <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5 flex-shrink-0" />}
-                        {ok === false && <XCircle className="w-3 h-3 text-red-500 mt-0.5 flex-shrink-0" />}
-                        {ok === undefined && <Circle className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-foreground/90 italic">💭 {thought}</p>
-                          {action && (
-                            <p className="font-mono text-primary text-[11px] mt-0.5">→ {action}</p>
-                          )}
-                          {observation && (
-                            <p className="text-muted-foreground text-[11px] mt-0.5">👁 {observation.slice(0, 200)}</p>
-                          )}
-                          {critique && (
-                            <p className="text-amber-400/70 text-[11px] mt-0.5">✓ {critique.slice(0, 150)}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Skills saved (new) */}
-          {skillsSaved && skillsSaved.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                Skills learned
-              </p>
-              {skillsSaved.map((s, idx) => (
-                <div key={idx} className="text-xs bg-amber-500/5 border border-amber-500/20 rounded p-2">
-                  <p className="font-mono text-amber-400">{String(s.name || "")}</p>
-                  <p className="text-muted-foreground">{String(s.description || "")}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Original plan (for non-ReAct tasks) */}
-          {steps.length > 0 && !isReactMode && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                {tr("dash.plan_label")} ({steps.length} {tr("dash.steps_label")})
-              </p>
-              {steps.map((step, idx) => {
-                const stepResult = results[idx];
-                const stepOk = stepResult ? (stepResult as Record<string, unknown>).success : null;
-                return (
-                  <div key={idx} className="flex items-start gap-2 text-xs">
-                    <span className="font-mono text-muted-foreground w-6">{step.step}.</span>
-                    {stepOk === true && <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5" />}
-                    {stepOk === false && <XCircle className="w-3 h-3 text-red-500 mt-0.5" />}
-                    {stepOk === null && <Circle className="w-3 h-3 text-muted-foreground mt-0.5" />}
-                    <span className="font-mono text-primary">{step.action}</span>
-                    <span className="text-muted-foreground truncate">{step.reasoning}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono" style={{ color }}>{value}</span>
+      </div>
+      <div className="h-1.5 bg-muted/40 rounded-full overflow-hidden">
+        <motion.div
+          className="h-full rounded-full"
+          style={{ background: color, boxShadow: `0 0 10px ${color}80` }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+        />
+      </div>
     </div>
   );
 }
@@ -718,18 +579,24 @@ function ScreenshotTile({ shot }: { shot: { name: string; size: number; modified
   const time = new Date(shot.modified * 1000).toLocaleTimeString(undefined, { hour: 2, minute: 2, second: 2 });
 
   return (
-    <div className="relative group rounded-md overflow-hidden border border-border bg-card">
+    <motion.div
+      className="relative group rounded-lg overflow-hidden border border-border/50 bg-card/50"
+      whileHover={{ scale: 1.03 }}
+      transition={{ type: "spring", damping: 20 }}
+    >
       {src && !errored ? (
         <img src={src} alt={shot.name} className="w-full aspect-video object-cover" loading="lazy" onError={() => setErrored(true)} />
       ) : (
-        <div className="w-full aspect-video flex items-center justify-center bg-muted">
-          <ImageIcon className="w-6 h-6 text-muted-foreground" />
+        <div className="w-full aspect-video flex items-center justify-center bg-muted/30">
+          <ImageIcon className="w-6 h-6 text-muted-foreground/50" />
         </div>
       )}
-      <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
-        <p className="text-[10px] font-mono text-white/90 truncate">{shot.name}</p>
-        <p className="text-[10px] text-white/60">{time}</p>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+        <div>
+          <p className="text-[9px] font-mono text-white/90 truncate">{shot.name}</p>
+          <p className="text-[9px] text-white/60">{time}</p>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
