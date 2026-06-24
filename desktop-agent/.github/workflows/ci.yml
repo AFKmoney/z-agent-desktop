@@ -1,0 +1,189 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ============================================================
+  # Python agent — lint, import check, config validation
+  # ============================================================
+  python-agent:
+    name: Python Agent (3.11)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install minimal deps (REST backend)
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml python-dotenv pydantic openai httpx rich
+
+      - name: YAML lint config
+        run: |
+          python -c "
+          import yaml
+          with open('config/config.yaml') as f:
+              cfg = yaml.safe_load(f)
+          assert 'agent' in cfg, 'Missing agent section'
+          assert 'zai' in cfg, 'Missing zai section'
+          assert 'telegram' in cfg, 'Missing telegram section'
+          print('✅ config.yaml valid')
+          "
+
+      - name: Python syntax check (all .py files)
+        run: |
+          find . -name "*.py" -not -path "./venv/*" -not -path "./.git/*" | while read f; do
+            python -m py_compile "$f" || { echo "❌ Syntax error in $f"; exit 1; }
+          done
+          echo "✅ All Python files compile"
+
+      - name: Import check — core modules
+        env:
+          ZAI_API_KEY: dummy-key-for-import-check
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from utils.config import load_config
+          from utils.logger import AgentLogger
+          from utils.security import SecurityGuard
+          from utils.i18n import init_i18n, get_text
+          from core.zai_client import ZaiClient
+          from core.memory import Memory
+          from core.planner import Planner, PLANNER_SYSTEM
+          from core.executor import Executor
+          from core.agent import Agent, AgentState
+          from core.react_loop import ReActLoop, REACT_SYSTEM
+          from core.orchestrator import Orchestrator, SubAgent
+          from core.skill_library import SkillLibrary
+          from core.conversation_context import ConversationContext, ConversationSession
+          print('✅ All core modules import cleanly')
+          "
+
+      - name: i18n check — all keys have EN and FR
+        run: |
+          python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from utils.i18n import STRINGS
+          missing = []
+          for key, translations in STRINGS.items():
+              if 'en' not in translations:
+                  missing.append(f'{key}: missing EN')
+              if 'fr' not in translations:
+                  missing.append(f'{key}: missing FR')
+          if missing:
+              print('❌ Missing translations:')
+              for m in missing:
+                  print(f'  - {m}')
+              exit(1)
+          print(f'✅ i18n: {len(STRINGS)} keys all have EN + FR')
+          "
+
+      - name: Agent smoke test — module registration
+        env:
+          ZAI_API_KEY: dummy-key-for-smoke-test
+        run: |
+          python -c "
+          import sys, asyncio
+          sys.path.insert(0, '.')
+          from utils.config import load_config
+          from utils.security import init_security
+          from utils.i18n import init_i18n
+          from core.agent import init_agent
+
+          config = load_config()
+          init_security(config)
+          init_i18n(config)
+          agent = init_agent(config)
+
+          async def run():
+              await agent.initialize()
+              from core.executor import get_executor
+              exe = get_executor()
+              actions = exe.list_available_actions()
+              print(f'✅ Agent initialized — {len(actions)} actions available')
+              assert len(actions) >= 60, f'Expected >=60 actions, got {len(actions)}'
+              for must_have in ['files.list', 'files.organize', 'email.send', 'code.run_python', 'web.search']:
+                  assert must_have in actions, f'Missing action: {must_have}'
+              print('✅ All critical actions registered')
+
+          asyncio.run(run())
+          "
+
+  # ============================================================
+  # Dashboard — lint
+  # ============================================================
+  dashboard:
+    name: Dashboard (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install bun
+        run: npm install -g bun
+
+      - name: Install deps
+        run: bun install || npm install
+
+      - name: Lint
+        run: bun run lint || npm run lint
+
+  # ============================================================
+  # Security — check for leaked secrets
+  # ============================================================
+  security:
+    name: Security check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for .env files (should not be committed)
+        run: |
+          if find . -name ".env" -not -path "./.git/*" | grep -q .; then
+            echo "❌ .env file found in repo!"
+            find . -name ".env" -not -path "./.git/*"
+            exit 1
+          fi
+          echo "✅ No .env files committed"
+
+      - name: Check for common secret patterns
+        run: |
+          if grep -rE "(sk-[a-zA-Z0-9]{20,}|github_pat_[a-zA-Z0-9_]{20,})" \
+              --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=venv \
+              --exclude="*.md" --exclude="*.example" . ; then
+            echo "⚠️  Potential secret found in files"
+            exit 1
+          fi
+          echo "✅ No obvious secrets found"
+
+      - name: Verify .gitignore covers sensitive paths
+        run: |
+          for path in ".env" "venv/" "__pycache__/"; do
+            if ! grep -q "^$path" .gitignore; then
+              echo "❌ .gitignore missing: $path"
+              exit 1
+            fi
+          done
+          echo "✅ .gitignore covers sensitive paths"
