@@ -6,6 +6,7 @@ import json
 import time
 from typing import Dict, Any, List, Optional
 from core.zai_client import get_zai
+from core.llm_provider import get_llm_provider
 from core.memory import get_memory
 from utils.logger import get_logger
 
@@ -146,13 +147,14 @@ class Planner:
     def __init__(self, config: dict):
         self.config = config
         self.zai = get_zai()
+        self.llm_provider = get_llm_provider()
         self.memory = get_memory()
         self.max_steps = config.get("agent", {}).get("max_actions_per_task", 50)
     
     def plan(self, user_request: str, context: Optional[Dict] = None) -> Dict[str, Any]:
         """Generate an action plan for a user request."""
-        if self.zai is None:
-            return {"error": "ZaiClient not available - check API key"}
+        if self.zai is None and self.llm_provider is None:
+            return {"error": "No LLM provider available - check API key"}
 
         # Detect language from request
         from utils.i18n import detect_lang, get_default_lang
@@ -177,7 +179,11 @@ class Planner:
         ]
         
         try:
-            result = self.zai.chat(messages, role="planner", temperature=0.3)
+            # Use multi-LLM provider (with fallback) instead of z.ai only
+            if self.llm_provider:
+                result = self.llm_provider.chat(messages, role="planner", temperature=0.3)
+            else:
+                result = self.zai.chat(messages, role="planner", temperature=0.3)
             content = result.get("content", "").strip()
             
             # Strip code fences if present

@@ -1065,23 +1065,23 @@ export function ChatSection({ lang }: { lang: Lang }) {
         : c
     ));
 
-    // Try to send via backend
-    if (backendOnline) {
-      try {
-        const r = await agentApi.chatSend(activeConvId, text);
-        const assistantMsg = {
-          id: `a_${Date.now()}`,
-          role: "assistant",
-          content: r.response || r.error || "Error",
-          datetime: new Date().toISOString(),
-          metadata: r.metadata as Record<string, unknown>,
-        };
-        setConversations(prev => prev.map(c =>
-          c.id === activeConvId
-            ? { ...c, messages: [...c.messages, assistantMsg], message_count: c.message_count + 1, updated_at: Date.now() }
-            : c
-        ));
-      } catch (e) {
+    // Always try to send via backend — don't check backendOnline flag
+    try {
+      const r = await agentApi.chatSend(activeConvId, text);
+      const assistantMsg = {
+        id: `a_${Date.now()}`,
+        role: "assistant",
+        content: r.response || r.error || "Error",
+        datetime: new Date().toISOString(),
+        metadata: r.metadata as Record<string, unknown>,
+      };
+      setConversations(prev => prev.map(c =>
+        c.id === activeConvId
+          ? { ...c, messages: [...c.messages, assistantMsg], message_count: c.message_count + 1, updated_at: Date.now() }
+          : c
+      ));
+      setBackendOnline(true);
+    } catch (e) {
         const errorMsg = {
           id: `e_${Date.now()}`,
           role: "assistant",
@@ -1091,24 +1091,7 @@ export function ChatSection({ lang }: { lang: Lang }) {
         setConversations(prev => prev.map(c =>
           c.id === activeConvId ? { ...c, messages: [...c.messages, errorMsg] } : c
         ));
-      }
-    } else {
-      // Backend offline — show error message
-      const errorMsg = {
-        id: `e_${Date.now()}`,
-        role: "assistant",
-        content: L2({
-          en: "⚠️ Backend offline — start the Python agent (python main.py) to chat with the LLM.\n\nYour message has been saved locally.",
-          fr: "⚠️ Backend hors-ligne — démarrez l'agent Python (python main.py) pour discuter avec le LLM.\n\nVotre message a été sauvegardé localement.",
-          es: "⚠️ Backend desconectado — inicia el agente Python (python main.py) para chatear con el LLM.\n\nTu mensaje se ha guardado localmente.",
-          de: "⚠️ Backend offline — starten Sie den Python-Agenten (python main.py) um mit dem LLM zu chatten.\n\nIhre Nachricht wurde lokal gespeichert.",
-          pt: "⚠️ Backend offline — inicie o agente Python (python main.py) para conversar com o LLM.\n\nSua mensagem foi salva localmente.",
-        }),
-        datetime: new Date().toISOString(),
-      };
-      setConversations(prev => prev.map(c =>
-        c.id === activeConvId ? { ...c, messages: [...c.messages, errorMsg] } : c
-      ));
+      setBackendOnline(false);
     }
     setSending(false);
   };

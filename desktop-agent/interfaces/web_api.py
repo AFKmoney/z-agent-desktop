@@ -1123,15 +1123,9 @@ async def chat_send_message(conv_id: str, message: str = Body(..., embed=True)):
         from core.llm_provider import get_llm_provider
         provider = get_llm_provider()
         if provider is None:
-            # Fallback to z.ai client
-            from core.zai_client import get_zai
-            zai = get_zai()
-            if zai is None:
-                ch.add_message(conv_id, "assistant", "Error: No LLM provider available")
-                return {"success": False, "error": "No LLM provider"}
-            result = zai.chat(messages, role="planner")
-        else:
-            result = provider.chat(messages, role="planner")
+            ch.add_message(conv_id, "assistant", "Error: No LLM provider available")
+            return {"success": False, "error": "No LLM provider"}
+        result = provider.chat(messages, role="planner")
 
         response_text = result.get("content", "Error: No response")
 

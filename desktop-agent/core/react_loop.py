@@ -29,6 +29,7 @@ from typing import Dict, Any, Optional, List, Callable
 from enum import Enum
 
 from core.zai_client import get_zai
+from core.llm_provider import get_llm_provider
 from core.memory import get_memory
 from core.perception import get_perception
 from core.executor import get_executor
@@ -81,6 +82,7 @@ class ReActLoop:
     def __init__(self, config: dict):
         self.config = config
         self.zai = get_zai()
+        self.llm_provider = get_llm_provider()
         self.memory = get_memory()
         self.perception = get_perception()
         self.executor = get_executor()
@@ -307,7 +309,11 @@ class ReActLoop:
         ]
 
         try:
-            result = self.zai.chat(messages, role="planner", temperature=0.3)
+            # Use multi-LLM provider (with fallback) instead of z.ai only
+            if self.llm_provider:
+                result = self.llm_provider.chat(messages, role="planner", temperature=0.3)
+            else:
+                result = self.zai.chat(messages, role="planner", temperature=0.3)
             content = result.get("content", "").strip()
 
             # Strip code fences
