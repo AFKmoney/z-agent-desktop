@@ -151,4 +151,41 @@ export const agentApi = {
   latestScreenshotUrl: () => buildUrl("/api/screenshot/latest"),
   perception: (question: string) =>
     agentFetch<Record<string, unknown>>("/api/perception/analyze", { params: { question } }),
+
+  // Cost tracker
+  costStats: (period: string = "all") =>
+    agentFetch<Record<string, unknown>>("/api/costs/stats", { params: { period } }),
+  costRecent: (limit = 50) =>
+    agentFetch<{ records: unknown[] }>("/api/costs/recent", { params: { limit } }),
+
+  // Audit log
+  auditRecent: (params?: { limit?: number; filter_action?: string; only_blocked?: boolean; only_errors?: boolean }) =>
+    agentFetch<{ entries: Array<Record<string, unknown>> }>("/api/audit/recent", { params: params || {} }),
+  auditStats: () => agentFetch<Record<string, unknown>>("/api/audit/stats"),
+
+  // Activity heatmap
+  activityHeatmap: (days = 365) =>
+    agentFetch<{ data: Array<Record<string, unknown>> }>("/api/activity/heatmap", { params: { days } }),
+  activityStats: () => agentFetch<Record<string, unknown>>("/api/activity/stats"),
+
+  // Scheduled tasks
+  scheduledList: () => agentFetch<{ tasks: Array<Record<string, unknown>> }>("/api/scheduled"),
+  scheduledCreate: (data: { name: string; request: string; schedule_type: string; schedule_expr: string }) =>
+    agentFetch<Record<string, unknown>>("/api/scheduled", { method: "POST", body: JSON.stringify(data) }),
+  scheduledUpdate: (id: string, data: Record<string, unknown>) =>
+    agentFetch<Record<string, unknown>>(`/api/scheduled/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  scheduledDelete: (id: string) =>
+    agentFetch<Record<string, unknown>>(`/api/scheduled/${id}`, { method: "DELETE" }),
+
+  // Knowledge base
+  kbStats: () => agentFetch<Record<string, unknown>>("/api/kb/stats"),
+  kbDocuments: () => agentFetch<{ documents: Array<Record<string, unknown>>; count: number }>("/api/kb/documents"),
+  kbSearch: (query: string, top_k = 5) =>
+    agentFetch<Record<string, unknown>>("/api/kb/search", { method: "POST", body: JSON.stringify({ query, top_k }), params: {} }),
+  kbDelete: (doc_id: string) =>
+    agentFetch<Record<string, unknown>>(`/api/kb/documents/${doc_id}`, { method: "DELETE" }),
+
+  // Notifications
+  notifications: (limit = 50) =>
+    agentFetch<{ notifications: Array<Record<string, unknown>> }>("/api/notifications", { params: { limit } }),
 };

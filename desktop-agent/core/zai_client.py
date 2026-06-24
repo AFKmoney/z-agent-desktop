@@ -340,6 +340,23 @@ class ZaiClient:
             }
             log.debug(f"chat[{role}/{model_name}] {elapsed:.2f}s "
                       f"({result['tokens_in']}+{result['tokens_out']} tok)")
+
+            # Record cost
+            try:
+                from core.cost_tracker import get_cost_tracker
+                tracker = get_cost_tracker()
+                if tracker:
+                    tracker.record(
+                        model=model_name,
+                        tokens_in=result["tokens_in"],
+                        tokens_out=result["tokens_out"],
+                        role=role,
+                        backend="rest",
+                        elapsed_s=elapsed,
+                    )
+            except Exception:
+                pass
+
             return result
         except Exception as e:
             log.error(f"chat[{role}/{model_name}] failed: {e}")

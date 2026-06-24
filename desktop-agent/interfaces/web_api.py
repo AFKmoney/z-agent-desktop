@@ -300,3 +300,204 @@ async def analyze_screen(question: str = "What is on the screen?"):
         raise HTTPException(500, "Perception not initialized")
     result = perception.analyze(question)
     return result
+
+
+# ============ Cost Tracker ============
+
+@app.get("/api/costs/stats")
+async def cost_stats(period: str = "all"):
+    """Get cost statistics."""
+    from core.cost_tracker import get_cost_tracker
+    tracker = get_cost_tracker()
+    if tracker is None:
+        return {"error": "not initialized"}
+    return tracker.get_stats(period)
+
+
+@app.get("/api/costs/recent")
+async def cost_recent(limit: int = 50):
+    """Get recent cost records."""
+    from core.cost_tracker import get_cost_tracker
+    tracker = get_cost_tracker()
+    if tracker is None:
+        return {"records": []}
+    return {"records": tracker.get_recent(limit)}
+
+
+# ============ Audit Log ============
+
+@app.get("/api/audit/recent")
+async def audit_recent(
+    limit: int = 100,
+    filter_action: Optional[str] = None,
+    filter_source: Optional[str] = None,
+    only_blocked: bool = False,
+    only_errors: bool = False,
+):
+    """Get recent audit entries."""
+    from core.audit_log import get_audit_log
+    audit = get_audit_log()
+    if audit is None:
+        return {"entries": []}
+    return {
+        "entries": audit.get_recent(
+            limit=limit,
+            filter_action=filter_action,
+            filter_source=filter_source,
+            only_blocked=only_blocked,
+            only_errors=only_errors,
+        )
+    }
+
+
+@app.get("/api/audit/stats")
+async def audit_stats():
+    """Get audit statistics."""
+    from core.audit_log import get_audit_log
+    audit = get_audit_log()
+    if audit is None:
+        return {}
+    return audit.get_stats()
+
+
+# ============ Activity Heatmap ============
+
+@app.get("/api/activity/heatmap")
+async def activity_heatmap(days: int = 365):
+    """Get activity heatmap data."""
+    from core.activity_tracker import get_activity_tracker
+    tracker = get_activity_tracker()
+    if tracker is None:
+        return {"data": []}
+    return {"data": tracker.get_heatmap(days)}
+
+
+@app.get("/api/activity/stats")
+async def activity_stats():
+    """Get activity statistics."""
+    from core.activity_tracker import get_activity_tracker
+    tracker = get_activity_tracker()
+    if tracker is None:
+        return {}
+    return tracker.get_stats()
+
+
+# ============ Scheduled Tasks ============
+
+class ScheduleCreate(BaseModel):
+    name: str
+    request: str
+    schedule_type: str  # 'cron' | 'interval' | 'date'
+    schedule_expr: str
+    language: str = "auto"
+
+class ScheduleUpdate(BaseModel):
+    name: Optional[str] = None
+    request: Optional[str] = None
+    enabled: Optional[bool] = None
+    schedule_type: Optional[str] = None
+    schedule_expr: Optional[str] = None
+
+
+@app.get("/api/scheduled")
+async def scheduled_list():
+    """List scheduled tasks."""
+    from core.scheduled_tasks import get_scheduled_task_manager
+    mgr = get_scheduled_task_manager()
+    if mgr is None:
+        return {"tasks": []}
+    return {"tasks": mgr.list()}
+
+
+@app.post("/api/scheduled")
+async def scheduled_create(req: ScheduleCreate):
+    """Create a scheduled task."""
+    from core.scheduled_tasks import get_scheduled_task_manager
+    mgr = get_scheduled_task_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.create(
+        name=req.name,
+        request=req.request,
+        schedule_type=req.schedule_type,
+        schedule_expr=req.schedule_expr,
+        language=req.language,
+    )
+
+
+@app.patch("/api/scheduled/{task_id}")
+async def scheduled_update(task_id: str, req: ScheduleUpdate):
+    """Update a scheduled task."""
+    from core.scheduled_tasks import get_scheduled_task_manager
+    mgr = get_scheduled_task_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    return mgr.update(task_id, **updates)
+
+
+@app.delete("/api/scheduled/{task_id}")
+async def scheduled_delete(task_id: str):
+    """Delete a scheduled task."""
+    from core.scheduled_tasks import get_scheduled_task_manager
+    mgr = get_scheduled_task_manager()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.delete(task_id)
+
+
+# ============ Knowledge Base ============
+
+@app.get("/api/kb/stats")
+async def kb_stats():
+    """Get knowledge base statistics."""
+    from modules.knowledge_base import KnowledgeBase
+    from utils.config import load_config
+    config = load_config()
+    if not config.get("knowledge_base"):
+        return {"document_count": 0, "total_chunks": 0}
+    kb = KnowledgeBase(config)
+    return kb.get_stats()
+
+
+@app.get("/api/kb/documents")
+async def kb_documents():
+    """List knowledge base documents."""
+    from modules.knowledge_base import KnowledgeBase
+    from utils.config import load_config
+    config = load_config()
+    kb = KnowledgeBase(config)
+    return kb.list_documents()
+
+
+@app.post("/api/kb/search")
+async def kb_search(query: str = Body(..., embed=True), top_k: int = 5):
+    """Search the knowledge base."""
+    from modules.knowledge_base import KnowledgeBase
+    from utils.config import load_config
+    config = load_config()
+    kb = KnowledgeBase(config)
+    return await kb.search(query, top_k)
+
+
+@app.delete("/api/kb/documents/{doc_id}")
+async def kb_delete(doc_id: str):
+    """Delete a document from the knowledge base."""
+    from modules.knowledge_base import KnowledgeBase
+    from utils.config import load_config
+    config = load_config()
+    kb = KnowledgeBase(config)
+    return kb.delete_document(doc_id)
+
+
+# ============ Notifications History ============
+
+@app.get("/api/notifications")
+async def notifications_history(limit: int = 50):
+    """Get notification history (from audit log entries with action=notification)."""
+    from core.audit_log import get_audit_log
+    audit = get_audit_log()
+    if audit is None:
+        return {"notifications": []}
+    entries = audit.get_recent(limit=limit * 5, filter_action="notification")
+    return {"notifications": entries[:limit]}

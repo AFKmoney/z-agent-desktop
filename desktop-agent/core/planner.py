@@ -104,6 +104,11 @@ Available action categories:
 - mcp.list_tools: list tools from MCP server(s) (params: server_name?)
 - mcp.call_tool: call an MCP tool (params: server_name, tool_name, arguments?)
 - mcp.connect / mcp.disconnect: connect/disconnect MCP server (params: server_name)
+- kb.add_document: add a document to the knowledge base (params: file_path, name?)
+- kb.search: semantic search across knowledge base (params: query, top_k?)
+- kb.list_documents: list all documents
+- kb.delete_document: delete a document (params: doc_id)
+- kb.get_stats: get knowledge base statistics
 
 Output format: STRICT JSON, no markdown fences:
 {

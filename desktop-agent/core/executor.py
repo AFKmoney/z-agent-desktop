@@ -91,7 +91,23 @@ class Executor:
                     "result": result,
                     "elapsed_s": round(elapsed, 2),
                 }
-            
+
+            # Record in audit log
+            try:
+                from core.audit_log import get_audit_log
+                audit = get_audit_log()
+                if audit:
+                    audit.record(
+                        action=action,
+                        params=params,
+                        result=result,
+                        source=getattr(self, "_current_source", "unknown"),
+                        task_id=getattr(self, "_current_task_id", None),
+                        allowed=allowed,
+                    )
+            except Exception:
+                pass
+
             status = "OK" if result.get("success", True) else "FAILED"
             log.info(f"[Step {step_num}] {status} in {elapsed:.2f}s")
             return result

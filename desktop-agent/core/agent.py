@@ -81,6 +81,34 @@ class Agent:
             init_skill_library()
         except Exception as e:
             log.warning(f"Skill library init failed: {e}")
+
+        # Init cost tracker
+        try:
+            from core.cost_tracker import init_cost_tracker
+            init_cost_tracker(self.config)
+        except Exception as e:
+            log.warning(f"Cost tracker init failed: {e}")
+
+        # Init audit log
+        try:
+            from core.audit_log import init_audit_log
+            init_audit_log()
+        except Exception as e:
+            log.warning(f"Audit log init failed: {e}")
+
+        # Init activity tracker
+        try:
+            from core.activity_tracker import init_activity_tracker
+            init_activity_tracker()
+        except Exception as e:
+            log.warning(f"Activity tracker init failed: {e}")
+
+        # Init scheduled tasks
+        try:
+            from core.scheduled_tasks import init_scheduled_task_manager
+            init_scheduled_task_manager()
+        except Exception as e:
+            log.warning(f"Scheduled tasks init failed: {e}")
         
         # Register module handlers
         # Register modules — gracefully skip those whose deps are missing
@@ -98,6 +126,7 @@ class Agent:
             ("plugin_marketplace", "modules.plugin_marketplace"),
             ("mcp_client", "modules.mcp_client"),
             ("vision_stream", "modules.vision_stream"),
+            ("knowledge_base", "modules.knowledge_base"),
             # Optional extension modules (auto-skip if deps missing):
             ("slack_notifier", "modules.slack_notifier"),
             # Add your own modules here — see modules/custom_module_template.py
@@ -271,6 +300,15 @@ class Agent:
                 cc.add_turn(task_id, request, result)
         except Exception as e:
             log.debug(f"Could not add to conversation context: {e}")
+
+        # 3c. Record in activity tracker (for heatmap)
+        try:
+            from core.activity_tracker import get_activity_tracker
+            at = get_activity_tracker()
+            if at:
+                at.record_task(success=result.get("success", False), source=task.get("source", "unknown"))
+        except Exception as e:
+            log.debug(f"Could not record activity: {e}")
 
         # Broadcast end
         for cb in list(self._progress_subscribers):

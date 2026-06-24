@@ -163,9 +163,11 @@ class McpClient:
     """MCP client — manages multiple MCP server connections."""
 
     def __init__(self, config: dict):
-        self.config = config.get("mcp", {})
+        mcp_cfg = config.get("mcp") or {}
+        self.config = mcp_cfg
         self.servers: Dict[str, McpServer] = {}
-        for name, server_cfg in self.config.get("servers", {}).items():
+        servers = self.config.get("servers") or {}
+        for name, server_cfg in servers.items():
             self.servers[name] = McpServer(name, server_cfg)
 
     async def list_servers_action(self, **kwargs) -> Dict[str, Any]:

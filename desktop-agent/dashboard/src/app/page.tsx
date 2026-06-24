@@ -21,6 +21,10 @@ import {
   AnimatedCounter, StateOrb, GlassCard, StatPill, ModuleTile,
   ThinkingStream, TaskCard, CommandPalette, ParticleBackground, VoiceWaveform,
 } from "@/components/agent";
+import {
+  ActivityHeatmap, CostPanel, AuditLogPanel, ScheduledTasksPanel,
+  KnowledgeBasePanel, NotificationsPanel,
+} from "@/components/agent/panels";
 
 const MODULES_LIST = ["screen", "files", "email", "calendar", "browser", "system", "windows", "code", "web", "voice", "plugin", "mcp", "vision", "slack"];
 
@@ -531,11 +535,43 @@ export default function Dashboard() {
             </GlassCard>
           </div>
         </div>
+
+        {/* Insights row — full-width analytics panels */}
+        <motion.div
+          className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <GlassCard className="p-4 lg:col-span-2">
+            <ActivityHeatmap />
+          </GlassCard>
+
+          <GlassCard className="p-4">
+            <CostPanel />
+          </GlassCard>
+
+          <GlassCard className="p-4">
+            <AuditLogPanel />
+          </GlassCard>
+
+          <GlassCard className="p-4">
+            <ScheduledTasksPanel />
+          </GlassCard>
+
+          <GlassCard className="p-4">
+            <KnowledgeBasePanel />
+          </GlassCard>
+
+          <GlassCard className="p-4">
+            <NotificationsPanel />
+          </GlassCard>
+        </motion.div>
       </main>
 
       <footer className="border-t border-border/50 mt-12 py-4">
         <div className="container mx-auto px-4 flex justify-between items-center text-[10px] text-muted-foreground font-mono">
-          <span>Z.AGENT v3.0 · {lang === "fr" ? "propulsé par z.ai GLM" : "powered by z.ai GLM"}</span>
+          <span>Z.AGENT v3.5 · {lang === "fr" ? "propulsé par z.ai GLM" : "powered by z.ai GLM"}</span>
           <span className="flex items-center gap-1.5">
             <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-500" : "bg-red-500")} />
             {state}
