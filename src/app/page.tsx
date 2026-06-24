@@ -2,17 +2,17 @@
 
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Command, Menu, X, Loader2 } from "lucide-react";
+import { Menu, X, Send } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi } from "@/lib/agent-api";
 import { detectBrowserLang, setStoredLang, type Lang } from "@/lib/i18n";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { type SectionId } from "@/components/agent/sidebar";
-import { CommandPalette } from "@/components/agent";
 
-// Dynamically import heavy components with SSR disabled to prevent hydration mismatch
 const ParticleBackground = dynamic(() => import("@/components/agent").then(m => m.ParticleBackground), { ssr: false });
 const Sidebar = dynamic(() => import("@/components/agent/sidebar").then(m => m.Sidebar), { ssr: false });
 const OverviewSection = dynamic(() => import("@/components/agent/sections").then(m => m.OverviewSection), { ssr: false });
@@ -32,8 +32,10 @@ function L(lang: string, texts: Record<string, string>): string {
 export default function Dashboard() {
   const [lang, setLang] = useState<Lang>("en");
   const [section, setSection] = useState<SectionId>("overview");
-  const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileSidebar, setMobileSidebar] = useState(false);
+  const [quickTask, setQuickTask] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const detected = detectBrowserLang();
@@ -43,21 +45,25 @@ export default function Dashboard() {
   const { status, connected } = useAgent();
   const state = status?.state ?? "stopped";
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setPaletteOpen(true);
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, []);
-
   const navigateTo = useCallback((s: string) => {
     setSection(s as SectionId);
     setMobileSidebar(false);
   }, []);
+
+  const submitQuickTask = () => {
+    if (!quickTask.trim()) return;
+    setSubmitting(true);
+    agentApi.submitTask(quickTask, "dashboard")
+      .then(() => {
+        toast({ title: L(lang, { en: "Task sent", fr: "Tâche envoyée", es: "Tarea enviada", de: "Aufgabe gesendet", pt: "Tarefa enviada" }) });
+        setQuickTask("");
+        setSection("tasks");
+      })
+      .catch(() => {
+        toast({ title: L(lang, { en: "Backend offline", fr: "Backend hors-ligne", es: "Backend desconectado", de: "Backend offline", pt: "Backend offline" }), variant: "destructive" });
+      })
+      .finally(() => setSubmitting(false));
+  };
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -86,38 +92,55 @@ export default function Dashboard() {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar with quick task input — replaces the broken Command palette */}
         <header className="sticky top-0 z-30 glass-strong border-b border-border/50">
-          <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2 px-4 py-2.5">
             <button
               onClick={() => setMobileSidebar(!mobileSidebar)}
-              className="lg:hidden w-8 h-8 rounded-lg hover:bg-accent/30 flex items-center justify-center"
+              className="lg:hidden w-8 h-8 rounded-lg hover:bg-accent/30 flex items-center justify-center flex-shrink-0"
             >
               {mobileSidebar ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
 
-            <div className="lg:hidden flex items-center gap-2">
+            <div className="lg:hidden flex items-center gap-2 flex-shrink-0">
               <span className="text-sm font-bold">Z.AGENT</span>
             </div>
 
-            <div className="flex items-center gap-1.5 ml-auto">
+            {/* Quick task input — always visible, no modal, no overlay */}
+            <div className="flex-1 flex gap-2 max-w-2xl mx-auto">
+              <input
+                type="text"
+                placeholder={L(lang, {
+                  en: "Quick task... (e.g. 'Sort my downloads')",
+                  fr: "Tâche rapide... (ex: 'Trie mes téléchargements')",
+                  es: "Tarea rápida... (ej: 'Ordena mis descargas')",
+                  de: "Schnellaufgabe... (z.B. 'Sortiere meine Downloads')",
+                  pt: "Tarefa rápida... (ex: 'Ordene meus downloads')",
+                })}
+                value={quickTask}
+                onChange={e => setQuickTask(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") submitQuickTask(); }}
+                className="flex-1 bg-background/50 rounded-lg px-3 py-1.5 text-sm outline-none border border-border/50 focus:border-primary/50"
+              />
               <Button
                 size="sm"
-                variant="ghost"
-                onClick={() => setPaletteOpen(true)}
-                className="gap-2 text-xs"
+                onClick={submitQuickTask}
+                disabled={!quickTask.trim() || submitting}
+                className="flex-shrink-0 gap-1.5"
               >
-                <Command className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{L(lang, { en: "Command", fr: "Commande", es: "Comando", de: "Befehl", pt: "Comando" })}</span>
-                <kbd className="text-[9px] font-mono bg-muted/60 px-1 py-0.5 rounded">⌘K</kbd>
+                <Send className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{L(lang, { en: "Send", fr: "Envoyer", es: "Enviar", de: "Senden", pt: "Enviar" })}</span>
               </Button>
-              <LanguageSelector
-                currentLang={lang}
-                onLanguageChange={(l) => { setLang(l); setStoredLang(l); }}
-              />
             </div>
+
+            <LanguageSelector
+              currentLang={lang}
+              onLanguageChange={(l) => { setLang(l); setStoredLang(l); }}
+            />
           </div>
         </header>
 
+        {/* Section content */}
         <main className="flex-1 overflow-y-auto p-6">
           {section === "overview" && <OverviewSection lang={lang} onNavigate={navigateTo} />}
           {section === "chat" && <ChatSection lang={lang} />}
@@ -140,16 +163,6 @@ export default function Dashboard() {
           </div>
         </footer>
       </div>
-
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        onSubmit={(text) => {
-          setPaletteOpen(false);
-          setSection("overview");
-          agentApi.submitTask(text, "dashboard").catch(() => {});
-        }}
-      />
     </div>
   );
 }
