@@ -79,6 +79,11 @@ Z.AGENT is an autonomous desktop agent that controls your computer when you're a
 - **Blocked actions** — format disk, rm -rf /, etc. always refused
 - **Audit trail** — Every action logged with redacted sensitive params
 
+### 🌍 Languages
+- **5 languages** — English, Français, Español, Deutsch, Português
+- Auto-detection from browser locale and message content
+- Switchable from the dashboard header
+
 ## 🚀 Quick Start
 
 ```bash
@@ -95,7 +100,7 @@ playwright install chromium
 python main.py                  # Start (Telegram + Web API + Notifier)
 ```
 
-Then open the dashboard at http://localhost:3000, click **⚙️ Settings**, and configure your API keys directly in the app. You can also test each key before saving.
+Then open the dashboard at http://localhost:3000, click **⚙️ Settings** in the sidebar, and configure your API keys directly in the app. You can also test each key before saving.
 
 > 💡 **No more `.env` editing** — all 15 environment variables (10 LLM providers, Telegram, Email, Slack, SDK) can be configured from the dashboard Settings panel. Sensitive values are masked, and each LLM key can be tested with one click.
 
@@ -115,13 +120,15 @@ The easiest way to configure Z.AGENT — no file editing needed:
 
 1. Start the agent: `python main.py`
 2. Open the dashboard: http://localhost:3000
-3. Click **⚙️ Settings** in the header
+3. Click **⚙️ Settings** in the sidebar
 4. Fill in your API keys (sensitive values are hidden by default)
 5. Click **Test** to verify each key works
 6. Click **Save** — the `.env` file is written automatically
 7. Restart the agent for changes to take effect
 
 All 15 environment variables are configurable from the Settings panel, organized into 5 categories: LLM Providers, Telegram, Email, Agent Settings, Integrations.
+
+When the backend is offline, the Settings panel shows all 15 variables with a warning banner. When the backend is running, it shows which keys are already configured (with masked values for sensitive ones).
 
 ### Option 2: Manual .env file
 
@@ -157,7 +164,7 @@ ZDA_USE_SDK=true
 ```yaml
 agent:
   use_react_loop: true        # ReAct loop (recommended) or single-shot planner
-  language: auto              # auto | fr | en
+  language: auto              # auto | fr | en | es | de | pt
 
 zai:
   models:
@@ -172,7 +179,7 @@ llm_provider:
 
 ## 🖥️ Dashboard
 
-Cinematic command-center UI built with Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui, and Framer Motion.
+Professional sidebar-navigation UI built with Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui, and Framer Motion.
 
 ```bash
 cd dashboard
@@ -182,25 +189,42 @@ bun run dev
 
 Open http://localhost:3000
 
+### Dashboard sections (9)
+
+| Section | Description |
+|---------|-------------|
+| **Overview** | State orb, stats, quick task input, modules grid, capabilities list |
+| **Chat** | Conversations with custom agents — full message history, persisted |
+| **Tasks** | Submit tasks, view history with ReAct traces |
+| **Monitor** | Live logs, screenshots, audit trail (tabbed) |
+| **Analytics** | Activity heatmap, cost tracker, notifications |
+| **Automation** | Scheduled tasks, prompt templates, backup, LLM provider switcher |
+| **Knowledge** | RAG knowledge base + vector memory |
+| **Agents** | Create and manage custom agents with custom parameters |
+| **Settings** | Configure all 15 API keys directly — test keys, no .env editing |
+
 ### Dashboard features
 
 | Feature | Description |
 |---------|-------------|
+| **Sidebar Navigation** | 9 sections with active indicator and agent state |
+| **Quick Task Input** | Inline task input in the header bar — always visible |
 | **State Orb** | Breathing/pulsing centerpiece that changes color with agent state |
-| **Thinking Stream** | Live ReAct trace with timeline and typewriter cursor |
+| **Thinking Stream** | Live ReAct trace with timeline and animated indicators |
 | **Module Grid** | 14 module tiles with per-module colors and hover glow |
-| **Command Palette** | Cmd+K to submit tasks |
 | **Activity Heatmap** | 90-day GitHub-style grid with streak counter |
 | **Cost Tracker** | Total cost, API calls, per-model breakdown |
 | **Audit Log** | Live security trail with blocked-only filter |
 | **Scheduled Tasks** | CRUD for recurring tasks |
 | **Knowledge Base** | Semantic search with score badges |
 | **LLM Provider Switcher** | Switch primary, test connections |
-| **Prompt Templates** | Browse and use templates |
+| **Prompt Templates** | Browse and use 8 built-in + custom templates |
 | **Backup Panel** | Create and restore backups |
 | **Smart Suggestions** | Predicted next actions |
-| **⚙️ Settings Panel** | Configure all API keys directly — test keys, no .env editing |
-| **Bilingual EN/FR** | Toggle in header |
+| **Custom Agents** | Create specialized agents with custom system prompts, allowed/blocked actions, model selection |
+| **Settings Panel** | Configure all API keys directly — test keys, show/hide passwords |
+| **5 Languages** | EN, FR, ES, DE, PT with auto-detection |
+| **Backend Status** | Green/red indicator showing if Python backend is connected |
 
 ## 🏗️ Architecture
 
@@ -218,7 +242,7 @@ Open http://localhost:3000
 │  └─────┬─────┘  └────┬─────┘  └────────────────────────┘    │
 │        │              │                                       │
 │  ┌─────┴─────┐  ┌─────┴──────────────────────────────┐      │
-│  │ Multi-LLM │  │ 16 MODULES (88 actions)            │      │
+│  │ Multi-LLM │  │ 15 MODULES (94+ actions)           │      │
 │  │ Provider  │  │ screen files email calendar        │      │
 │  │ (10 prov) │  │ browser system windows             │      │
 │  └───────────┘  │ code web voice vision              │      │
@@ -234,6 +258,10 @@ Open http://localhost:3000
 │  │ Cost      │  │ Audit     │  │ Activity  │                │
 │  │ Tracker   │  │ Log       │  │ Tracker   │                │
 │  └───────────┘  └───────────┘  └───────────┘                │
+│  ┌───────────┐  ┌───────────┐  ┌───────────┐                │
+│  │ Chat      │  │ Custom    │  │ Env       │                │
+│  │ History   │  │ Agents    │  │ Manager   │                │
+│  └───────────┘  └───────────┘  └───────────┘                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -241,13 +269,15 @@ Open http://localhost:3000
 
 | Metric | Value |
 |--------|-------|
-| Total actions | **88** |
-| Modules | **16** |
+| Total actions | **94+** |
+| Modules | **15** |
 | Core components | **26** |
 | LLM providers | **10** |
-| Dashboard panels | **22** |
-| Languages | **EN + FR** |
-| API endpoints | **50+** |
+| Dashboard sections | **9** |
+| Languages | **5** (EN, FR, ES, DE, PT) |
+| API endpoints | **75** |
+| Custom agent templates | **6** built-in |
+| Prompt templates | **8** built-in |
 
 ## ⚖️ Comparison with Competitors
 
@@ -272,7 +302,9 @@ Open http://localhost:3000
 | RAG knowledge base | — | — | ✅ | — | ✅ |
 | 100% Windows control | — | — | — | — | ✅ |
 | Telegram remote | — | — | — | — | ✅ |
-| Bilingual EN/FR | — | — | — | — | ✅ |
+| 5 languages | — | — | — | — | ✅ |
+| Chat with history | — | — | — | — | ✅ |
+| Custom agents | — | — | — | — | ✅ |
 | Cinematic UI | Terminal | Basic | IDE | Basic | ✅ |
 
 ## 🤝 Contributing
@@ -282,13 +314,13 @@ Contributions are welcome! Here's how to get started:
 1. **Fork** the repo
 2. **Clone** your fork: `git clone https://github.com/your-username/z-agent-desktop.git`
 3. **Create a branch**: `git checkout -b feature/amazing-feature`
-4. **Commit**: `git commit -m 'Add amazing feature'`
+4. **Commit**: `git commit -m 'Add amazing-feature'`
 5. **Push**: `git push origin feature/amazing-feature`
 6. **Open a Pull Request`
 
 ### Areas for contribution
 
-- 🌍 **Translations** — Add more languages (ES, DE, PT, IT, ZH, JA)
+- 🌍 **Translations** — Add more languages (IT, ZH, JA, RU, AR)
 - 🔌 **Plugins** — Create new plugins (Spotify, Notion, Docker, etc.)
 - 🌐 **MCP servers** — Add curated MCP server configurations
 - 🧪 **Tests** — Add integration tests with mock LLM providers
@@ -316,7 +348,7 @@ MIT — see [LICENSE](LICENSE)
 
 <div align="center">
 
-**Z.AGENT v4.0** — Powered by 10 LLM providers · 88 actions · 16 modules · 26 core components
+**Z.AGENT v4.0** — Powered by 10 LLM providers · 94+ actions · 15 modules · 26 core components · 5 languages
 
 Made with 🤖 by [AFKmoney](https://github.com/AFKmoney)
 
