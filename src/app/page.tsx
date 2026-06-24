@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Command, Menu, X } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
+import { agentApi } from "@/lib/agent-api";
 import { detectBrowserLang, setStoredLang, type Lang } from "@/lib/i18n";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { Button } from "@/components/ui/button";
@@ -151,7 +152,13 @@ export default function Dashboard() {
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
-        onSubmit={(text) => { setSection("tasks"); setPaletteOpen(false); }}
+        onSubmit={async (text) => {
+          setPaletteOpen(false);
+          setSection("overview");
+          try {
+            await agentApi.submitTask(text, "dashboard");
+          } catch {}
+        }}
       />
     </div>
   );
