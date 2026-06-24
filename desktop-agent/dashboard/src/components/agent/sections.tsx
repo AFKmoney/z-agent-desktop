@@ -906,25 +906,63 @@ export function SettingsSection({ lang }: { lang: Lang }) {
 }
 
 // ============================================================
-// CHAT SECTION (inline, not modal)
+// CHAT SECTION — works with AND without backend
 // ============================================================
 
+// Local conversation storage (fallback when backend is offline)
+interface LocalConv {
+  id: string;
+  title: string;
+  agent_id?: string;
+  created_at: number;
+  updated_at: number;
+  message_count: number;
+  messages: Array<{ id: string; role: string; content: string; datetime: string; metadata?: Record<string, unknown> }>;
+}
+
 export function ChatSection({ lang }: { lang: Lang }) {
-  const [conversations, setConversations] = useState<Array<Record<string, unknown>>>([]);
-  const [activeConv, setActiveConv] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Array<Record<string, unknown>>>([]);
+  const [conversations, setConversations] = useState<LocalConv[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [agents, setAgents] = useState<Array<Record<string, unknown>>>([]);
   const [selectedAgent, setSelectedAgent] = useState<string | undefined>(undefined);
+  const [backendOnline, setBackendOnline] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const L2 = (t: Record<string, string>) => t[lang] || t.en;
 
+  const activeConv = conversations.find(c => c.id === activeConvId) || null;
+  const messages = activeConv?.messages || [];
+
+  // Load from backend or localStorage
   const loadConvs = useCallback(async () => {
+    // Try backend first
     try {
       const r = await agentApi.chatList();
-      setConversations(r.conversations || []);
+      if (r.conversations && r.conversations.length > 0) {
+        setBackendOnline(true);
+        // Convert backend format to local
+        const localConvs: LocalConv[] = r.conversations.map((c: Record<string, unknown>) => ({
+          id: String(c.id),
+          title: String(c.title || "Untitled"),
+          agent_id: c.agent_id ? String(c.agent_id) : undefined,
+          created_at: Number(c.created_at || 0),
+          updated_at: Number(c.updated_at || 0),
+          message_count: Number(c.message_count || 0),
+          messages: [], // lazy load on open
+        }));
+        setConversations(localConvs);
+        return;
+      }
+    } catch {}
+    // Backend offline — load from localStorage
+    setBackendOnline(false);
+    try {
+      const stored = localStorage.getItem("zda-chat-conversations");
+      if (stored) {
+        setConversations(JSON.parse(stored));
+      }
     } catch {}
   }, []);
 
@@ -935,56 +973,142 @@ export function ChatSection({ lang }: { lang: Lang }) {
     } catch {}
   }, []);
 
+  // Save to localStorage whenever conversations change
   useEffect(() => {
-    loadConvs();
-    loadAgents();
-    const i = setInterval(loadConvs, 10000);
-    return () => clearInterval(i);
+    try {
+      localStorage.setItem("zda-chat-conversations", JSON.stringify(conversations));
+    } catch {}
+  }, [conversations]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const doLoad = async () => {
+      await Promise.all([loadConvs(), loadAgents()]);
+      if (cancelled) return;
+    };
+    doLoad();
+    return () => { cancelled = true; };
   }, [loadConvs, loadAgents]);
 
   useEffect(() => {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const newConv = () => {
+    const id = `local_${Date.now()}`;
+    const conv: LocalConv = {
+      id,
+      title: L2({ en: "New chat", fr: "Nouvelle conversation", es: "Nueva conversación", de: "Neue Konversation", pt: "Nova conversa" }),
+      agent_id: selectedAgent,
+      created_at: Date.now(),
+      updated_at: Date.now(),
+      message_count: 0,
+      messages: [],
+    };
+    setConversations(prev => [conv, ...prev]);
+    setActiveConvId(id);
+    setInput("");
+
+    // Also try to create on backend (won't break if offline)
+    if (backendOnline) {
+      agentApi.chatCreate({ agent_id: selectedAgent }).catch(() => {});
+    }
+  };
+
   const openConv = async (convId: string) => {
-    try {
-      const r = await agentApi.chatGet(convId);
-      setActiveConv(convId);
-      setMessages((r as Record<string, unknown>).messages as Array<Record<string, unknown>> || []);
-    } catch {}
+    const conv = conversations.find(c => c.id === convId);
+    if (!conv) return;
+    setActiveConvId(convId);
+
+    // If messages not loaded yet and backend is online, fetch them
+    if (conv.messages.length === 0 && conv.message_count > 0 && backendOnline) {
+      try {
+        const r = await agentApi.chatGet(convId);
+        const fetched = (r as Record<string, unknown>).messages as Array<Record<string, unknown>> || [];
+        setConversations(prev => prev.map(c =>
+          c.id === convId ? { ...c, messages: fetched.map(m => ({
+            id: String(m.id || ""), role: String(m.role || ""), content: String(m.content || ""),
+            datetime: String(m.datetime || ""), metadata: m.metadata as Record<string, unknown>,
+          })) } : c
+        ));
+      } catch {}
+    }
   };
 
-  const newConv = async () => {
-    try {
-      const r = await agentApi.chatCreate({ agent_id: selectedAgent });
-      const conv = r as Record<string, unknown>;
-      setActiveConv(String(conv.id));
-      setMessages([]);
-      loadConvs();
-    } catch {}
-  };
-
-  const deleteConv = async (convId: string, e: React.MouseEvent) => {
+  const deleteConv = (convId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    try {
-      await agentApi.chatDelete(convId);
-      if (activeConv === convId) { setActiveConv(null); setMessages([]); }
-      loadConvs();
-    } catch {}
+    setConversations(prev => prev.filter(c => c.id !== convId));
+    if (activeConvId === convId) { setActiveConvId(null); }
+    if (backendOnline) {
+      agentApi.chatDelete(convId).catch(() => {});
+    }
   };
 
   const send = async () => {
-    if (!input.trim() || !activeConv) return;
+    if (!input.trim() || !activeConvId) return;
     const text = input;
     setInput("");
     setSending(true);
-    setMessages(prev => [...prev, { id: `u_${Date.now()}`, role: "user", content: text, datetime: new Date().toISOString() }]);
-    try {
-      const r = await agentApi.chatSend(activeConv, text);
-      setMessages(prev => [...prev, { id: `a_${Date.now()}`, role: "assistant", content: r.response || r.error || "Error", datetime: new Date().toISOString(), metadata: r.metadata }]);
-      loadConvs();
-    } catch (e) {
-      setMessages(prev => [...prev, { id: `e_${Date.now()}`, role: "assistant", content: `❌ ${e}`, datetime: new Date().toISOString() }]);
+
+    const userMsg = { id: `u_${Date.now()}`, role: "user", content: text, datetime: new Date().toISOString() };
+
+    // Add user message locally immediately
+    setConversations(prev => prev.map(c =>
+      c.id === activeConvId
+        ? {
+            ...c,
+            messages: [...c.messages, userMsg],
+            message_count: c.message_count + 1,
+            updated_at: Date.now(),
+            title: c.messages.length === 0 ? text.slice(0, 60) : c.title,
+          }
+        : c
+    ));
+
+    // Try to send via backend
+    if (backendOnline) {
+      try {
+        const r = await agentApi.chatSend(activeConvId, text);
+        const assistantMsg = {
+          id: `a_${Date.now()}`,
+          role: "assistant",
+          content: r.response || r.error || "Error",
+          datetime: new Date().toISOString(),
+          metadata: r.metadata as Record<string, unknown>,
+        };
+        setConversations(prev => prev.map(c =>
+          c.id === activeConvId
+            ? { ...c, messages: [...c.messages, assistantMsg], message_count: c.message_count + 1, updated_at: Date.now() }
+            : c
+        ));
+      } catch (e) {
+        const errorMsg = {
+          id: `e_${Date.now()}`,
+          role: "assistant",
+          content: L2({ en: "❌ Could not reach the agent. Is the Python backend running?", fr: "❌ Impossible de joindre l'agent. Le backend Python est-il démarré ?", es: "❌ No se pudo contactar al agente. ¿El backend Python está funcionando?", de: "❌ Agent nicht erreichbar. Läuft das Python-Backend?", pt: "❌ Não foi possível contactar o agente. O backend Python está rodando?" }),
+          datetime: new Date().toISOString(),
+        };
+        setConversations(prev => prev.map(c =>
+          c.id === activeConvId ? { ...c, messages: [...c.messages, errorMsg] } : c
+        ));
+      }
+    } else {
+      // Backend offline — show error message
+      const errorMsg = {
+        id: `e_${Date.now()}`,
+        role: "assistant",
+        content: L2({
+          en: "⚠️ Backend offline — start the Python agent (python main.py) to chat with the LLM.\n\nYour message has been saved locally.",
+          fr: "⚠️ Backend hors-ligne — démarrez l'agent Python (python main.py) pour discuter avec le LLM.\n\nVotre message a été sauvegardé localement.",
+          es: "⚠️ Backend desconectado — inicia el agente Python (python main.py) para chatear con el LLM.\n\nTu mensaje se ha guardado localmente.",
+          de: "⚠️ Backend offline — starten Sie den Python-Agenten (python main.py) um mit dem LLM zu chatten.\n\nIhre Nachricht wurde lokal gespeichert.",
+          pt: "⚠️ Backend offline — inicie o agente Python (python main.py) para conversar com o LLM.\n\nSua mensagem foi salva localmente.",
+        }),
+        datetime: new Date().toISOString(),
+      };
+      setConversations(prev => prev.map(c =>
+        c.id === activeConvId ? { ...c, messages: [...c.messages, errorMsg] } : c
+      ));
     }
     setSending(false);
   };
@@ -997,14 +1121,17 @@ export function ChatSection({ lang }: { lang: Lang }) {
         icon={MessageCircle}
         lang={lang}
         actions={
-          <select
-            value={selectedAgent || ""}
-            onChange={e => setSelectedAgent(e.target.value || undefined)}
-            className="bg-background/50 rounded-md px-2 py-1.5 text-xs outline-none border border-border/50"
-          >
-            <option value="">{L2({ en: "Default agent", fr: "Agent par défaut", es: "Agente por defecto", de: "Standard-Agent", pt: "Agente padrão" })}</option>
-            {agents.map(a => <option key={String(a.id)} value={String(a.id)}>{String(a.emoji)} {String(a.name)}</option>)}
-          </select>
+          <div className="flex items-center gap-2">
+            <span className={cn("w-2 h-2 rounded-full", backendOnline ? "bg-emerald-500" : "bg-red-500")} title={backendOnline ? "Backend online" : "Backend offline"} />
+            <select
+              value={selectedAgent || ""}
+              onChange={e => setSelectedAgent(e.target.value || undefined)}
+              className="bg-background/50 rounded-md px-2 py-1.5 text-xs outline-none border border-border/50"
+            >
+              <option value="">{L2({ en: "Default agent", fr: "Agent par défaut", es: "Agente por defecto", de: "Standard-Agent", pt: "Agente padrão" })}</option>
+              {agents.map(a => <option key={String(a.id)} value={String(a.id)}>{String(a.emoji)} {String(a.name)}</option>)}
+            </select>
+          </div>
         }
       />
 
@@ -1020,12 +1147,12 @@ export function ChatSection({ lang }: { lang: Lang }) {
               <p className="text-xs text-muted-foreground text-center py-4">{L2({ en: "No conversations", fr: "Aucune conversation", es: "Sin conversaciones", de: "Keine Konversationen", pt: "Sem conversas" })}</p>
             ) : (
               conversations.map(conv => (
-                <div key={String(conv.id)} onClick={() => openConv(String(conv.id))} className={cn("group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-all", activeConv === conv.id ? "bg-primary/15 border border-primary/30" : "hover:bg-accent/20")}>
+                <div key={conv.id} onClick={() => openConv(conv.id)} className={cn("group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-all", activeConvId === conv.id ? "bg-primary/15 border border-primary/30" : "hover:bg-accent/20")}>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs truncate">{String(conv.title || L2({ en: "Untitled", fr: "Sans titre", es: "Sin título", de: "Unbenannt", pt: "Sem título" }))}</p>
-                    <p className="text-[9px] text-muted-foreground">{Number(conv.message_count)} {L2({ en: "messages", fr: "messages", es: "mensajes", de: "Nachrichten", pt: "mensagens" })}</p>
+                    <p className="text-xs truncate">{conv.title}</p>
+                    <p className="text-[9px] text-muted-foreground">{conv.message_count} {L2({ en: "messages", fr: "messages", es: "mensajes", de: "Nachrichten", pt: "mensagens" })}</p>
                   </div>
-                  <button onClick={(e) => deleteConv(String(conv.id), e)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
+                  <button onClick={(e) => deleteConv(conv.id, e)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
@@ -1046,12 +1173,12 @@ export function ChatSection({ lang }: { lang: Lang }) {
                   </div>
                 ) : (
                   messages.map((msg, i) => (
-                    <motion.div key={String(msg.id || i)} className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "flex-row")} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+                    <motion.div key={msg.id || i} className={cn("flex gap-3", msg.role === "user" ? "flex-row-reverse" : "flex-row")} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
                       <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0", msg.role === "user" ? "bg-cyan-500/15 border border-cyan-500/30" : "bg-primary/15 border border-primary/30")}>
                         {msg.role === "user" ? <User className="w-3.5 h-3.5 text-cyan-400" /> : <Bot className="w-3.5 h-3.5 text-primary" />}
                       </div>
                       <div className={cn("max-w-[75%] rounded-xl px-3 py-2", msg.role === "user" ? "bg-cyan-500/10 border border-cyan-500/20" : "glass")}>
-                        <p className="text-sm whitespace-pre-wrap break-words">{String(msg.content)}</p>
+                        <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                       </div>
                     </motion.div>
                   ))
