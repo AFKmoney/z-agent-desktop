@@ -56,3 +56,14 @@ websockets>=12.0
 # --- Windows Control (modules/windows_control.py) ---
 # Required on Windows for full desktop control (registry, services, windows, COM)
 # pywin32>=306; sys_platform == "win32"
+
+# --- Voice Control (modules/voice_control.py) ---
+# For speech-to-text and text-to-speech
+# Either: pip install openai (uses Whisper API)
+# Or:     pip install openai-whisper (local Whisper model)
+# Plus ffmpeg installed on system (apt install ffmpeg / brew install ffmpeg)
+
+# --- Vision Streaming (modules/vision_stream.py) ---
+# For continuous screen monitoring with change detection
+imagehash>=4.3
+# mss and Pillow already listed above

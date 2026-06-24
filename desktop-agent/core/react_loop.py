@@ -92,6 +92,7 @@ class ReActLoop:
         available_actions: List[str],
         progress_callback: Optional[Callable] = None,
         user_response_callback: Optional[Callable] = None,
+        context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Run the ReAct loop until goal is achieved or max turns reached."""
         if self.zai is None:
@@ -105,6 +106,7 @@ class ReActLoop:
         start_time = time.time()
         turns_taken = 0
         skills_saved: List[Dict[str, str]] = []
+        self._conversation_context = context or {}
 
         # Broadcast start
         if progress_callback:
@@ -261,6 +263,7 @@ class ReActLoop:
         state = {
             "memory_facts": list(self.memory.long_term.get("facts", {}).keys())[:10],
             "recent_actions": [h.get("action") for h in (await self._get_recent_history())[-5:]],
+            "conversation_context": getattr(self, "_conversation_context", {}),
         }
         # Optionally include screen description (expensive — only every 5 turns)
         if self.perception and len(getattr(self, "_history", [])) % 5 == 0:

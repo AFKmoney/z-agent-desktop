@@ -113,6 +113,12 @@ class TelegramInterface:
                 filters.TEXT & ~filters.COMMAND,
                 self._on_text
             ))
+
+        # Voice messages (transcribe + treat as text)
+        self.app.add_handler(MessageHandler(
+            filters.VOICE | filters.AUDIO,
+            self._on_voice
+        ))
         
         # Start polling
         log.info("Telegram bot starting...")
@@ -357,11 +363,71 @@ class TelegramInterface:
         if not self._is_allowed(update):
             await update.message.reply_text("❌ Vous n'êtes pas autorisé à utiliser cet agent.")
             return
-        
+
         text = update.message.text.strip()
         if not text:
             return
-        
+
+        await self._submit_request(update, text)
+
+    async def _on_voice(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+        """Handle voice/audio messages — transcribe then treat as text."""
+        if not self._is_allowed(update):
+            return
+
+        # Get the voice file
+        message = update.message
+        if message.voice:
+            file_obj = await message.voice.get_file()
+            ext = ".ogg"
+        elif message.audio:
+            file_obj = await message.audio.get_file()
+            ext = os.path.splitext(message.audio.file_name or "")[1] or ".mp3"
+        else:
+            return
+
+        # Download to temp file
+        import tempfile
+        import os as _os
+        tmp_path = tempfile.NamedTemporaryFile(suffix=ext, delete=False).name
+        try:
+            await file_obj.download_to_drive(tmp_path)
+        except Exception as e:
+            await message.reply_text(f"❌ Download failed: {e}")
+            return
+
+        # Transcribe
+        await message.reply_text("🎙️ Transcription en cours...")
+        try:
+            from modules.voice_control import VoiceControlModule
+            from utils.config import load_config
+            config = load_config()
+            voice_mod = VoiceControlModule(config)
+            result = await voice_mod.transcribe_audio(tmp_path)
+        except Exception as e:
+            await message.reply_text(f"❌ Voice module error: {e}")
+            _os.unlink(tmp_path)
+            return
+        finally:
+            try:
+                _os.unlink(tmp_path)
+            except Exception:
+                pass
+
+        if not result.get("success"):
+            await message.reply_text(f"❌ Transcription failed: {result.get('error', 'unknown')}")
+            return
+
+        text = result.get("text", "").strip()
+        if not text:
+            await message.reply_text("❌ Empty transcript")
+            return
+
+        # Reply with transcript + submit
+        duration = result.get("duration_s", 0)
+        await message.reply_text(
+            f"🎙️ Transcription ({duration:.1f}s):\n\n\"{text}\"\n\n⏳ Processing..."
+        )
         await self._submit_request(update, text)
     
     async def _submit_request(self, update: Update, request: str):

@@ -7,6 +7,7 @@ import {
   ChevronRight, Circle, CheckCircle2, XCircle,
   Camera, FileText, Mail, Calendar, Globe, Monitor, MonitorSmartphone,
   Lightbulb, Eye, Languages, Sparkles, Search, Code, Network,
+  Mic, Plug, Radio, MessageSquare,
 } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi, type TaskRecord } from "@/lib/agent-api";
@@ -495,6 +496,11 @@ export default function Dashboard() {
                 <Capability icon={Network} label={lang === "fr" ? "Orchestrateur multi-agents" : "Multi-agent orchestrator"} active />
                 <Capability icon={Brain} label={lang === "fr" ? "Skill library (apprentissage)" : "Skill library (learning)"} active />
                 <Capability icon={Zap} label={lang === "fr" ? "Tool calling natif GLM" : "Native GLM tool calling"} active />
+                <Capability icon={Mic} label={lang === "fr" ? "Voice control (Whisper STT/TTS)" : "Voice control (Whisper STT/TTS)"} active />
+                <Capability icon={MessageSquare} label={lang === "fr" ? "Contexte conversation long terme" : "Long-term conversation context"} active />
+                <Capability icon={Plug} label={lang === "fr" ? "Plugin marketplace" : "Plugin marketplace"} active />
+                <Capability icon={Network} label="MCP (Model Context Protocol)" active />
+                <Capability icon={Radio} label={lang === "fr" ? "Vision streaming continu" : "Continuous vision streaming"} active />
               </CardContent>
             </Card>
           </div>

@@ -87,6 +87,23 @@ Available action categories:
 - web.read_page: read a web page (params: url)
 - web.fetch: fetch a URL (params: url, extract_text?)
 - web.research: deep research on a topic (params: topic, depth?)
+- voice.transcribe: transcribe audio file to text (params: audio_path, language?)
+- voice.speak: text-to-speech (params: text, voice?, speed?)
+- vision.start_stream: start continuous screen monitoring (params: mode?, fps?)
+- vision.stop_stream: stop the vision stream
+- vision.get_status: get stream status and stats
+- vision.watch_for: watch for a UI element (params: description, timeout_s?)
+- vision.wait_for_change: wait until screen changes (params: timeout_s?)
+- plugin.list: list installed plugins
+- plugin.install_path: install plugin from local path (params: source_path, force?)
+- plugin.install_url: install plugin from URL/git (params: url, force?)
+- plugin.enable / plugin.disable: enable/disable plugin (params: name)
+- plugin.uninstall: remove a plugin (params: name)
+- plugin.info: get plugin info (params: name)
+- mcp.list_servers: list configured MCP servers
+- mcp.list_tools: list tools from MCP server(s) (params: server_name?)
+- mcp.call_tool: call an MCP tool (params: server_name, tool_name, arguments?)
+- mcp.connect / mcp.disconnect: connect/disconnect MCP server (params: server_name)
 
 Output format: STRICT JSON, no markdown fences:
 {

@@ -68,6 +68,13 @@ class Agent:
         init_planner(self.config)
         init_executor(self.config)
 
+        # Init conversation context (persistent multi-task memory)
+        try:
+            from core.conversation_context import init_conversation_context
+            init_conversation_context()
+        except Exception as e:
+            log.warning(f"Conversation context init failed: {e}")
+
         # Init skill library (for ReAct loop learning)
         try:
             from core.skill_library import init_skill_library
@@ -87,6 +94,10 @@ class Agent:
             ("windows_control", "modules.windows_control"),
             ("code_interpreter", "modules.code_interpreter"),
             ("web_search", "modules.web_search"),
+            ("voice_control", "modules.voice_control"),
+            ("plugin_marketplace", "modules.plugin_marketplace"),
+            ("mcp_client", "modules.mcp_client"),
+            ("vision_stream", "modules.vision_stream"),
             # Optional extension modules (auto-skip if deps missing):
             ("slack_notifier", "modules.slack_notifier"),
             # Add your own modules here — see modules/custom_module_template.py
@@ -163,6 +174,16 @@ class Agent:
                 executor = get_executor()
                 available_actions = executor.list_available_actions()
 
+                # Get conversation context for the ReAct loop
+                conv_context = {}
+                try:
+                    from core.conversation_context import get_conversation_context
+                    cc = get_conversation_context()
+                    if cc:
+                        conv_context = cc.get_context_for_planner(request)
+                except Exception:
+                    pass
+
                 async def react_progress(event):
                     event["task_id"] = task_id
                     for cb in list(self._progress_subscribers):
@@ -175,6 +196,7 @@ class Agent:
                     goal=request,
                     available_actions=available_actions,
                     progress_callback=react_progress,
+                    context=conv_context,
                 )
 
                 # Convert to standard result format
@@ -240,6 +262,15 @@ class Agent:
             "result": result,
             "success": result.get("success", False),
         })
+
+        # 3b. Record in conversation context (for multi-task memory)
+        try:
+            from core.conversation_context import get_conversation_context
+            cc = get_conversation_context()
+            if cc:
+                cc.add_turn(task_id, request, result)
+        except Exception as e:
+            log.debug(f"Could not add to conversation context: {e}")
 
         # Broadcast end
         for cb in list(self._progress_subscribers):

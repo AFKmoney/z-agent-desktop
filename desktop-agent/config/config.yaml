@@ -236,3 +236,66 @@ security:
     - "format_disk"
     - "rm_rf_root"
     - "modify_system_files"
+
+# ============================================================
+# Voice Control (Whisper STT + TTS)
+# ============================================================
+voice:
+  # STT backend: 'api' (OpenAI/z.ai Whisper API) or 'local' (whisper.cpp)
+  stt_backend: "api"
+  # TTS backend: 'api' or 'local' (espeak)
+  tts_backend: "api"
+  whisper_model: "whisper-1"
+  tts_voice: "alloy"              # alloy | echo | fable | onyx | nova | shimmer
+  tts_speed: 1.0
+  language: "auto"                # auto | fr | en
+  # For local Whisper:
+  # local_model_size: "base"      # tiny | base | small | medium | large
+
+# ============================================================
+# Vision Streaming (continuous screen monitoring)
+# ============================================================
+vision_stream:
+  # Mode: 'monitoring' (low FPS, change detection) or 'live' (high FPS)
+  mode: "monitoring"
+  fps: 1.0                        # 1.0 for monitoring, 5.0+ for live
+  scale: 0.5                      # Downscale factor for faster processing
+  change_threshold: 5             # Hamming distance for change detection
+  save_frames: false              # Save frames to disk (uses space)
+  max_frames_history: 60          # Max frames kept in memory
+
+# ============================================================
+# MCP (Model Context Protocol) — external tool servers
+# ============================================================
+# Configure MCP servers to extend the agent with external tools.
+# Each server is a separate process that exposes tools via JSON-RPC.
+# See https://github.com/modelcontextprotocol/servers for available servers.
+mcp:
+  servers:
+    # Example: filesystem MCP server
+    # filesystem:
+    #   command: "npx"
+    #   args: ["-y", "@modelcontextprotocol/server-filesystem", "${HOME}"]
+    #   env: {}
+    #   enabled: true
+    #
+    # Example: GitHub MCP server
+    # github:
+    #   command: "npx"
+    #   args: ["-y", "@modelcontextprotocol/server-github"]
+    #   env:
+    #     GITHUB_PERSONAL_ACCESS_TOKEN: "${GITHUB_TOKEN}"
+    #   enabled: false
+    #
+    # Example: PostgreSQL MCP server
+    # postgres:
+    #   command: "npx"
+    #   args: ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
+    #   enabled: false
+
+# ============================================================
+# Code Interpreter (Python sandbox)
+# ============================================================
+code_interpreter:
+  timeout_s: 30                   # Max execution time per script
+  max_memory_mb: 256              # Memory limit per script
