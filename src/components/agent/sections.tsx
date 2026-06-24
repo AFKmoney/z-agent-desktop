@@ -937,33 +937,38 @@ export function ChatSection({ lang }: { lang: Lang }) {
 
   // Load from backend or localStorage
   const loadConvs = useCallback(async () => {
-    // Try backend first
-    try {
-      const r = await agentApi.chatList();
-      if (r.conversations && r.conversations.length > 0) {
-        setBackendOnline(true);
-        // Convert backend format to local
-        const localConvs: LocalConv[] = r.conversations.map((c: Record<string, unknown>) => ({
-          id: String(c.id),
-          title: String(c.title || "Untitled"),
-          agent_id: c.agent_id ? String(c.agent_id) : undefined,
-          created_at: Number(c.created_at || 0),
-          updated_at: Number(c.updated_at || 0),
-          message_count: Number(c.message_count || 0),
-          messages: [], // lazy load on open
-        }));
-        setConversations(localConvs);
-        return;
-      }
-    } catch {}
-    // Backend offline — load from localStorage
-    setBackendOnline(false);
+    // Load local first (so we never lose them)
+    let localConvs: LocalConv[] = [];
     try {
       const stored = localStorage.getItem("zda-chat-conversations");
-      if (stored) {
-        setConversations(JSON.parse(stored));
-      }
+      if (stored) localConvs = JSON.parse(stored);
     } catch {}
+
+    // Try backend
+    try {
+      const r = await agentApi.chatList();
+      setBackendOnline(true);
+      const backendConvs: LocalConv[] = (r.conversations || []).map((c: Record<string, unknown>) => ({
+        id: String(c.id),
+        title: String(c.title || "Untitled"),
+        agent_id: c.agent_id ? String(c.agent_id) : undefined,
+        created_at: Number(c.created_at || 0),
+        updated_at: Number(c.updated_at || 0),
+        message_count: Number(c.message_count || 0),
+        messages: [],
+      }));
+
+      // Merge: backend convs + local-only convs (not already in backend)
+      const backendIds = new Set(backendConvs.map(c => c.id));
+      const localOnly = localConvs.filter(c => !backendIds.has(c.id) && !c.id.startsWith("local_"));
+      // Keep local convs that have messages (they might not be synced yet)
+      const localWithMsgs = localConvs.filter(c => c.id.startsWith("local_") || c.messages.length > 0);
+
+      setConversations([...localWithMsgs, ...backendConvs, ...localOnly]);
+    } catch {
+      setBackendOnline(false);
+      setConversations(localConvs);
+    }
   }, []);
 
   const loadAgents = useCallback(async () => {
@@ -994,10 +999,19 @@ export function ChatSection({ lang }: { lang: Lang }) {
     if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const newConv = () => {
-    const id = `local_${Date.now()}`;
+  const newConv = async () => {
+    // Try to create on backend first
+    let convId = `local_${Date.now()}`;
+    try {
+      const r = await agentApi.chatCreate({ agent_id: selectedAgent });
+      convId = String((r as Record<string, unknown>).id || convId);
+      setBackendOnline(true);
+    } catch {
+      setBackendOnline(false);
+    }
+
     const conv: LocalConv = {
-      id,
+      id: convId,
       title: L2({ en: "New chat", fr: "Nouvelle conversation", es: "Nueva conversación", de: "Neue Konversation", pt: "Nova conversa" }),
       agent_id: selectedAgent,
       created_at: Date.now(),
@@ -1006,13 +1020,8 @@ export function ChatSection({ lang }: { lang: Lang }) {
       messages: [],
     };
     setConversations(prev => [conv, ...prev]);
-    setActiveConvId(id);
+    setActiveConvId(convId);
     setInput("");
-
-    // Also try to create on backend (won't break if offline)
-    if (backendOnline) {
-      agentApi.chatCreate({ agent_id: selectedAgent }).catch(() => {});
-    }
   };
 
   const openConv = async (convId: string) => {
@@ -1020,11 +1029,11 @@ export function ChatSection({ lang }: { lang: Lang }) {
     if (!conv) return;
     setActiveConvId(convId);
 
-    // If messages not loaded yet and backend is online, fetch them
-    if (conv.messages.length === 0 && conv.message_count > 0 && backendOnline) {
+    // If messages not loaded yet, try to fetch from backend
+    if (conv.messages.length === 0 && !convId.startsWith("local_")) {
       try {
         const r = await agentApi.chatGet(convId);
-        const fetched = (r as Record<string, unknown>).messages as Array<Record<string, unknown>> || [];
+        const fetched = ((r as Record<string, unknown>).messages as Array<Record<string, unknown>>) || [];
         setConversations(prev => prev.map(c =>
           c.id === convId ? { ...c, messages: fetched.map(m => ({
             id: String(m.id || ""), role: String(m.role || ""), content: String(m.content || ""),
@@ -1039,7 +1048,8 @@ export function ChatSection({ lang }: { lang: Lang }) {
     e.stopPropagation();
     setConversations(prev => prev.filter(c => c.id !== convId));
     if (activeConvId === convId) { setActiveConvId(null); }
-    if (backendOnline) {
+    // Always try backend (won't break if offline)
+    if (!convId.startsWith("local_")) {
       agentApi.chatDelete(convId).catch(() => {});
     }
   };
