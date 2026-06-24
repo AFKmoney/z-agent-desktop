@@ -8,6 +8,10 @@ import {
 import { agentApi } from "@/lib/agent-api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+// Multi-language helper
+function L(lang: string, texts: Record<string, string>): string {
+  return texts[lang] || texts.en;
+}
 
 const EMOJI_OPTIONS = ["🤖", "📧", "🔍", "📚", "📁", "⚙️", "🌐", "💻", "🎨", "📊", "🔬", "🎬", "🎮", "💡", "🚀", "⚡"];
 const COLOR_OPTIONS = [
@@ -180,13 +184,13 @@ export function AgentCreatorModal({
               <div>
                 <h2 className="text-base font-bold">
                   {showEditor
-                    ? (editing ? (lang === "fr" ? "Modifier l'agent" : "Edit Agent") : (lang === "fr" ? "Créer un agent" : "Create Agent"))
-                    : (lang === "fr" ? "Agents personnalisés" : "Custom Agents")}
+                    ? (editing ? (L(lang, { en: "Edit Agent", fr: "Modifier l'agent", es: "Edit Agent", de: "Edit Agent", pt: "Edit Agent" })) : (L(lang, { en: "Create Agent", fr: "Créer un agent", es: "Create Agent", de: "Create Agent", pt: "Create Agent" })))
+                    : (L(lang, { en: "Custom Agents", fr: "Agents personnalisés", es: "Custom Agents", de: "Custom Agents", pt: "Custom Agents" }))}
                 </h2>
                 <p className="text-xs text-muted-foreground">
                   {showEditor
-                    ? (lang === "fr" ? "Configurez les paramètres" : "Configure parameters")
-                    : `${agents.length} ${lang === "fr" ? "agents" : "agents"}`}
+                    ? (L(lang, { en: "Configure parameters", fr: "Configurez les paramètres", es: "Configure parameters", de: "Configure parameters", pt: "Configure parameters" }))
+                    : `${agents.length} ${L(lang, { en: "agents", fr: "agents", es: "agents", de: "agents", pt: "agents" })}`}
                 </p>
               </div>
             </div>
@@ -194,7 +198,7 @@ export function AgentCreatorModal({
               {!showEditor && (
                 <Button size="sm" onClick={startNew} className="gap-1.5">
                   <Plus className="w-3.5 h-3.5" />
-                  {lang === "fr" ? "Nouveau" : "New"}
+                  {L(lang, { en: "New", fr: "Nouveau", es: "New", de: "New", pt: "New" })}
                 </Button>
               )}
               <button
@@ -213,7 +217,7 @@ export function AgentCreatorModal({
               <div className="space-y-2">
                 {agents.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    {lang === "fr" ? "Aucun agent. Créez-en un !" : "No agents. Create one!"}
+                    {L(lang, { en: "No agents. Create one!", fr: "Aucun agent. Créez-en un !", es: "No agents. Create one!", de: "No agents. Create one!", pt: "No agents. Create one!" })}
                   </p>
                 ) : (
                   agents.map((agent, i) => {
@@ -239,7 +243,7 @@ export function AgentCreatorModal({
                             <span className="text-sm font-medium truncate">{String(agent.name)}</span>
                             {isTemplate && (
                               <span className="text-[9px] px-1 py-0.5 rounded bg-muted/40 font-mono uppercase">
-                                {lang === "fr" ? "Modèle" : "Template"}
+                                {L(lang, { en: "Template", fr: "Modèle", es: "Template", de: "Template", pt: "Template" })}
                               </span>
                             )}
                           </div>
@@ -280,7 +284,7 @@ export function AgentCreatorModal({
                 <div className="flex gap-4">
                   <div className="flex-1">
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">
-                      {lang === "fr" ? "Emoji" : "Emoji"}
+                      {L(lang, { en: "Emoji", fr: "Emoji", es: "Emoji", de: "Emoji", pt: "Emoji" })}
                     </label>
                     <div className="flex flex-wrap gap-1.5">
                       {EMOJI_OPTIONS.map(e => (
@@ -299,7 +303,7 @@ export function AgentCreatorModal({
                   </div>
                   <div className="flex-1">
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">
-                      {lang === "fr" ? "Couleur" : "Color"}
+                      {L(lang, { en: "Color", fr: "Couleur", es: "Color", de: "Color", pt: "Color" })}
                     </label>
                     <div className="flex flex-wrap gap-1.5">
                       {COLOR_OPTIONS.map(c => (
@@ -320,7 +324,7 @@ export function AgentCreatorModal({
                 {/* Name */}
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                    {lang === "fr" ? "Nom" : "Name"} <span className="text-red-400">*</span>
+                    {L(lang, { en: "Name", fr: "Nom", es: "Name", de: "Name", pt: "Name" })} <span className="text-red-400">*</span>
                   </label>
                   <input
                     value={form.name}
@@ -333,12 +337,12 @@ export function AgentCreatorModal({
                 {/* Description */}
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                    {lang === "fr" ? "Description" : "Description"}
+                    {L(lang, { en: "Description", fr: "Description", es: "Description", de: "Description", pt: "Description" })}
                   </label>
                   <input
                     value={form.description}
                     onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder={lang === "fr" ? "Gère mes emails" : "Manages my emails"}
+                    placeholder={L(lang, { en: "Manages my emails", fr: "Gère mes emails", es: "Manages my emails", de: "Manages my emails", pt: "Manages my emails" })}
                     className="w-full bg-background/50 rounded-md px-3 py-2 text-sm outline-none border border-border/50 focus:border-primary/50"
                   />
                 </div>
@@ -346,7 +350,7 @@ export function AgentCreatorModal({
                 {/* System Prompt */}
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                    {lang === "fr" ? "Prompt système (persona)" : "System Prompt (persona)"}
+                    {L(lang, { en: "System Prompt (persona)", fr: "Prompt système (persona)", es: "System Prompt (persona)", de: "System Prompt (persona)", pt: "System Prompt (persona)" })}
                   </label>
                   <textarea
                     value={form.system_prompt}
@@ -361,7 +365,7 @@ export function AgentCreatorModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                      {lang === "fr" ? "Fournisseur LLM" : "LLM Provider"}
+                      {L(lang, { en: "LLM Provider", fr: "Fournisseur LLM", es: "LLM Provider", de: "LLM Provider", pt: "LLM Provider" })}
                     </label>
                     <select
                       value={form.provider}
@@ -380,7 +384,7 @@ export function AgentCreatorModal({
                   </div>
                   <div>
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                      {lang === "fr" ? "Modèle (vide = défaut)" : "Model (empty = default)"}
+                      {L(lang, { en: "Model (empty = default)", fr: "Modèle (vide = défaut)", es: "Model (empty = default)", de: "Model (empty = default)", pt: "Model (empty = default)" })}
                     </label>
                     <input
                       value={form.model}
@@ -395,7 +399,7 @@ export function AgentCreatorModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                      {lang === "fr" ? "Température" : "Temperature"}: {form.temperature}
+                      {L(lang, { en: "Temperature", fr: "Température", es: "Temperature", de: "Temperature", pt: "Temperature" })}: {form.temperature}
                     </label>
                     <input
                       type="range"
@@ -409,7 +413,7 @@ export function AgentCreatorModal({
                   </div>
                   <div>
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                      {lang === "fr" ? "Max tokens" : "Max tokens"}
+                      {L(lang, { en: "Max tokens", fr: "Max tokens", es: "Max tokens", de: "Max tokens", pt: "Max tokens" })}
                     </label>
                     <input
                       type="number"
@@ -424,30 +428,30 @@ export function AgentCreatorModal({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                      {lang === "fr" ? "Mémoire" : "Memory"}
+                      {L(lang, { en: "Memory", fr: "Mémoire", es: "Memory", de: "Memory", pt: "Memory" })}
                     </label>
                     <select
                       value={form.memory_mode}
                       onChange={e => setForm(prev => ({ ...prev, memory_mode: e.target.value }))}
                       className="w-full bg-background/50 rounded-md px-3 py-2 text-sm outline-none border border-border/50"
                     >
-                      <option value="none">{lang === "fr" ? "Aucune" : "None"}</option>
-                      <option value="conversation">{lang === "fr" ? "Conversation" : "Conversation"}</option>
-                      <option value="persistent">{lang === "fr" ? "Persistante" : "Persistent"}</option>
+                      <option value="none">{L(lang, { en: "None", fr: "Aucune", es: "None", de: "None", pt: "None" })}</option>
+                      <option value="conversation">{L(lang, { en: "Conversation", fr: "Conversation", es: "Conversation", de: "Conversation", pt: "Conversation" })}</option>
+                      <option value="persistent">{L(lang, { en: "Persistent", fr: "Persistante", es: "Persistent", de: "Persistent", pt: "Persistent" })}</option>
                     </select>
                   </div>
                   <div>
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">
-                      {lang === "fr" ? "Autonomie" : "Autonomy"}
+                      {L(lang, { en: "Autonomy", fr: "Autonomie", es: "Autonomy", de: "Autonomy", pt: "Autonomy" })}
                     </label>
                     <select
                       value={form.autonomy_mode}
                       onChange={e => setForm(prev => ({ ...prev, autonomy_mode: e.target.value }))}
                       className="w-full bg-background/50 rounded-md px-3 py-2 text-sm outline-none border border-border/50"
                     >
-                      <option value="full">{lang === "fr" ? "Plein contrôle" : "Full control"}</option>
-                      <option value="confirmation">{lang === "fr" ? "Confirmation requise" : "Confirmation required"}</option>
-                      <option value="readonly">{lang === "fr" ? "Lecture seule" : "Read only"}</option>
+                      <option value="full">{L(lang, { en: "Full control", fr: "Plein contrôle", es: "Full control", de: "Full control", pt: "Full control" })}</option>
+                      <option value="confirmation">{L(lang, { en: "Confirmation required", fr: "Confirmation requise", es: "Confirmation required", de: "Confirmation required", pt: "Confirmation required" })}</option>
+                      <option value="readonly">{L(lang, { en: "Read only", fr: "Lecture seule", es: "Read only", de: "Read only", pt: "Read only" })}</option>
                     </select>
                   </div>
                 </div>
@@ -455,7 +459,7 @@ export function AgentCreatorModal({
                 {/* Allowed actions */}
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-2 block">
-                    {lang === "fr" ? "Actions autorisées" : "Allowed Actions"} ({form.allowed_actions.length})
+                    {L(lang, { en: "Allowed Actions", fr: "Actions autorisées", es: "Allowed Actions", de: "Allowed Actions", pt: "Allowed Actions" })} ({form.allowed_actions.length})
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {ACTION_PREFIXES.map(a => {
@@ -478,16 +482,14 @@ export function AgentCreatorModal({
                     })}
                   </div>
                   <p className="text-[9px] text-muted-foreground mt-1">
-                    {lang === "fr"
-                      ? "Vide = toutes les actions autorisées"
-                      : "Empty = all actions allowed"}
+                    {L(lang, { en: "Empty = all actions allowed", fr: "Vide = toutes les actions autorisées", es: "Empty = all actions allowed", de: "Empty = all actions allowed", pt: "Empty = all actions allowed" })}
                   </p>
                 </div>
 
                 {/* Blocked actions */}
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-red-400 mb-2 block">
-                    {lang === "fr" ? "Actions bloquées" : "Blocked Actions"} ({form.blocked_actions.length})
+                    {L(lang, { en: "Blocked Actions", fr: "Actions bloquées", es: "Blocked Actions", de: "Blocked Actions", pt: "Blocked Actions" })} ({form.blocked_actions.length})
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {ACTION_PREFIXES.map(a => {
@@ -518,11 +520,11 @@ export function AgentCreatorModal({
           {showEditor && (
             <div className="p-5 border-t border-border/50 flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => setShowEditor(false)}>
-                {lang === "fr" ? "Annuler" : "Cancel"}
+                {L(lang, { en: "Cancel", fr: "Annuler", es: "Cancel", de: "Cancel", pt: "Cancel" })}
               </Button>
               <Button size="sm" onClick={save} disabled={!form.name.trim()} className="gap-1.5">
                 <Save className="w-3.5 h-3.5" />
-                {editing ? (lang === "fr" ? "Mettre à jour" : "Update") : (lang === "fr" ? "Créer" : "Create")}
+                {editing ? (L(lang, { en: "Update", fr: "Mettre à jour", es: "Update", de: "Update", pt: "Update" })) : (L(lang, { en: "Create", fr: "Créer", es: "Create", de: "Create", pt: "Create" }))}
               </Button>
             </div>
           )}

@@ -9,6 +9,10 @@ import {
 import { agentApi } from "@/lib/agent-api";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+// Multi-language helper
+function L(lang: string, texts: Record<string, string>): string {
+  return texts[lang] || texts.en;
+}
 
 interface EnvVar {
   key: string;
@@ -130,7 +134,7 @@ export function SettingsModal({
       }
 
       if (Object.keys(updates).length === 0) {
-        setSavedMessage(lang === "fr" ? "Aucun changement" : "No changes");
+        setSavedMessage(L(lang, { en: "No changes", fr: "Aucun changement", es: "No changes", de: "No changes", pt: "No changes" }));
         setSaving(false);
         return;
       }
@@ -138,15 +142,13 @@ export function SettingsModal({
       const result = await agentApi.envBatchSet(updates);
       if (result.success) {
         setSavedMessage(
-          lang === "fr"
-            ? `✅ ${result.count} variables mises à jour. Redémarrez l'agent.`
-            : `✅ ${result.count} variables updated. Restart the agent.`
+          L(lang, { en: `✅ ${result.count} variables updated. Restart the agent.`, fr: `✅ ${result.count} variables mises à jour. Redémarrez l'agent.`, es: `✅ ${result.count} variables actualizadas. Reinicia el agente.`, de: `✅ ${result.count} Variablen aktualisiert. Agent neu starten.`, pt: `✅ ${result.count} variáveis atualizadas. Reinicie o agente.` })
         );
         // Reload to show new state
         setTimeout(load, 500);
       } else {
         setSavedMessage(
-          lang === "fr" ? "❌ Erreur lors de la sauvegarde" : "❌ Error saving"
+          L(lang, { en: "❌ Error saving", fr: "❌ Erreur lors de la sauvegarde", es: "❌ Error saving", de: "❌ Error saving", pt: "❌ Error saving" })
         );
       }
     } catch (e) {
@@ -160,9 +162,7 @@ export function SettingsModal({
       await agentApi.envDelete(key);
       setEditValues(prev => ({ ...prev, [key]: "" }));
       setSavedMessage(
-        lang === "fr"
-          ? `✅ ${key} supprimé. Redémarrez l'agent.`
-          : `✅ ${key} cleared. Restart the agent.`
+        L(lang, { en: `✅ ${key} cleared. Restart the agent.`, fr: `✅ ${key} supprimé. Redémarrez l'agent.`, es: `✅ ${key} eliminado. Reinicia el agente.`, de: `✅ ${key} gelöscht. Agent neu starten.`, pt: `✅ ${key} removido. Reinicie o agente.` })
       );
       setTimeout(load, 500);
     } catch {}
@@ -222,12 +222,10 @@ export function SettingsModal({
               </div>
               <div>
                 <h2 className="text-base font-bold">
-                  {lang === "fr" ? "Paramètres" : "Settings"}
+                  {L(lang, { en: "Settings", fr: "Paramètres", es: "Settings", de: "Settings", pt: "Settings" })}
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  {lang === "fr"
-                    ? "Configurez vos clés API et tokens directement"
-                    : "Configure your API keys and tokens directly"}
+                  {L(lang, { en: "Configure your API keys and tokens directly", fr: "Configurez vos clés API et tokens directement", es: "Configure your API keys and tokens directly", de: "Configure your API keys and tokens directly", pt: "Configure your API keys and tokens directly" })}
                 </p>
               </div>
             </div>
@@ -243,7 +241,7 @@ export function SettingsModal({
           <div className="px-5 py-3 border-b border-border/50 flex items-center gap-4 text-xs">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">
-                {lang === "fr" ? "Configuré:" : "Configured:"}
+                {L(lang, { en: "Configured:", fr: "Configuré:", es: "Configured:", de: "Configured:", pt: "Configured:" })}
               </span>
               <span className="font-mono text-emerald-400">
                 {String(status.set || 0)}/{String(status.total || 0)}
@@ -253,16 +251,14 @@ export function SettingsModal({
               <div className="flex items-center gap-1.5 text-amber-400">
                 <AlertCircle className="w-3 h-3" />
                 <span>
-                  {lang === "fr"
-                    ? `${requiredMissing.length} requis manquant(s): ${requiredMissing.join(", ")}`
-                    : `${requiredMissing.length} required missing: ${requiredMissing.join(", ")}`}
+                  {L(lang, { en: `${requiredMissing.length} required missing: ${requiredMissing.join(", ")}`, fr: `${requiredMissing.length} requis manquant(s): ${requiredMissing.join(", ")}`, es: `${requiredMissing.length} requeridos faltantes: ${requiredMissing.join(", ")}`, de: `${requiredMissing.length} erforderlich, fehlen: ${requiredMissing.join(", ")}`, pt: `${requiredMissing.length} obrigatórios faltando: ${requiredMissing.join(", ")}` })}
                 </span>
               </div>
             )}
             {!envFileExists && (
               <div className="flex items-center gap-1.5 text-amber-400">
                 <AlertCircle className="w-3 h-3" />
-                <span>{lang === "fr" ? "Fichier .env introuvable" : ".env file not found"}</span>
+                <span>{L(lang, { en: ".env file not found", fr: "Fichier .env introuvable", es: ".env file not found", de: ".env file not found", pt: ".env file not found" })}</span>
               </div>
             )}
           </div>
@@ -304,13 +300,13 @@ export function SettingsModal({
                                 <span className="text-sm font-medium">{v.label}</span>
                                 {v.required && (
                                   <span className="text-[9px] px-1 py-0.5 rounded bg-red-500/20 text-red-400 font-mono uppercase">
-                                    {lang === "fr" ? "Requis" : "Required"}
+                                    {L(lang, { en: "Required", fr: "Requis", es: "Required", de: "Required", pt: "Required" })}
                                   </span>
                                 )}
                                 {v.is_set && (
                                   <span className="flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono uppercase">
                                     <Check className="w-2 h-2" />
-                                    {lang === "fr" ? "Configuré" : "Set"}
+                                    {L(lang, { en: "Set", fr: "Configuré", es: "Set", de: "Set", pt: "Set" })}
                                   </span>
                                 )}
                                 {v.sensitive && (
@@ -369,7 +365,7 @@ export function SettingsModal({
                               <button
                                 onClick={() => clearVar(v.key)}
                                 className="px-2 py-1.5 rounded-md text-[10px] bg-muted/40 text-muted-foreground hover:bg-red-500/20 hover:text-red-400 transition-all"
-                                title={lang === "fr" ? "Supprimer" : "Clear"}
+                                title={L(lang, { en: "Clear", fr: "Supprimer", es: "Clear", de: "Clear", pt: "Clear" })}
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
@@ -412,14 +408,14 @@ export function SettingsModal({
               {!savedMessage && dirty && (
                 <p className="text-xs text-amber-400 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
-                  {lang === "fr" ? "Modifications non sauvegardées" : "Unsaved changes"}
+                  {L(lang, { en: "Unsaved changes", fr: "Modifications non sauvegardées", es: "Unsaved changes", de: "Unsaved changes", pt: "Unsaved changes" })}
                 </p>
               )}
             </div>
             <div className="flex gap-2 flex-shrink-0">
               <Button size="sm" variant="ghost" onClick={load} disabled={saving}>
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                {lang === "fr" ? "Actualiser" : "Refresh"}
+                {L(lang, { en: "Refresh", fr: "Actualiser", es: "Refresh", de: "Refresh", pt: "Refresh" })}
               </Button>
               <Button
                 size="sm"
@@ -432,7 +428,7 @@ export function SettingsModal({
                 ) : (
                   <Save className="w-3.5 h-3.5" />
                 )}
-                {lang === "fr" ? "Sauvegarder" : "Save"}
+                {L(lang, { en: "Save", fr: "Sauvegarder", es: "Save", de: "Save", pt: "Save" })}
               </Button>
             </div>
           </div>

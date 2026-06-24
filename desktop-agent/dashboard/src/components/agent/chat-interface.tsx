@@ -8,6 +8,10 @@ import {
 } from "lucide-react";
 import { agentApi } from "@/lib/agent-api";
 import { cn } from "@/lib/utils";
+// Multi-language helper
+function L(lang: string, texts: Record<string, string>): string {
+  return texts[lang] || texts.en;
+}
 
 interface ChatMessage {
   id: string;
@@ -215,10 +219,10 @@ export function ChatInterface({
               </div>
               <div>
                 <h2 className="text-base font-bold">
-                  {lang === "fr" ? "Chat" : "Chat"}
+                  {L(lang, { en: "Chat", fr: "Chat", es: "Chat", de: "Chat", pt: "Chat" })}
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  {conversations.length} {lang === "fr" ? "conversations" : "conversations"}
+                  {conversations.length} {L(lang, { en: "conversations", fr: "conversations", es: "conversations", de: "conversations", pt: "conversations" })}
                 </p>
               </div>
             </div>
@@ -241,7 +245,7 @@ export function ChatInterface({
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-primary/15 text-primary border border-primary/30 hover:bg-primary/25 transition-all text-sm font-medium"
                 >
                   <Plus className="w-4 h-4" />
-                  {lang === "fr" ? "Nouveau chat" : "New chat"}
+                  {L(lang, { en: "New chat", fr: "Nouveau chat", es: "New chat", de: "New chat", pt: "New chat" })}
                 </button>
               </div>
 
@@ -252,7 +256,7 @@ export function ChatInterface({
                   onChange={e => setSelectedAgentId(e.target.value || undefined)}
                   className="w-full bg-background/50 rounded-md px-2 py-1.5 text-xs outline-none border border-border/50 focus:border-primary/50"
                 >
-                  <option value="">{lang === "fr" ? "Agent par défaut" : "Default agent"}</option>
+                  <option value="">{L(lang, { en: "Default agent", fr: "Agent par défaut", es: "Default agent", de: "Default agent", pt: "Default agent" })}</option>
                   {agents.map(a => (
                     <option key={a.id} value={a.id}>{a.emoji} {a.name}</option>
                   ))}
@@ -263,7 +267,7 @@ export function ChatInterface({
               <div className="px-3 pb-2 relative">
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
                 <input
-                  placeholder={lang === "fr" ? "Rechercher..." : "Search..."}
+                  placeholder={L(lang, { en: "Search...", fr: "Rechercher...", es: "Search...", de: "Search...", pt: "Search..." })}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   className="w-full bg-background/50 rounded-md pl-7 pr-2 py-1.5 text-xs outline-none border border-border/50 focus:border-primary/50"
@@ -274,7 +278,7 @@ export function ChatInterface({
               <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
                 {filteredConversations.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-4">
-                    {lang === "fr" ? "Aucune conversation" : "No conversations"}
+                    {L(lang, { en: "No conversations", fr: "Aucune conversation", es: "No conversations", de: "No conversations", pt: "No conversations" })}
                   </p>
                 ) : (
                   filteredConversations.map(conv => (
@@ -288,9 +292,9 @@ export function ChatInterface({
                     >
                       {conv.pinned && <Pin className="w-2.5 h-2.5 text-amber-400 flex-shrink-0" />}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs truncate">{conv.title || (lang === "fr" ? "Sans titre" : "Untitled")}</p>
+                        <p className="text-xs truncate">{conv.title || (L(lang, { en: "Untitled", fr: "Sans titre", es: "Untitled", de: "Untitled", pt: "Untitled" }))}</p>
                         <p className="text-[9px] text-muted-foreground">
-                          {conv.message_count} {lang === "fr" ? "messages" : "messages"}
+                          {conv.message_count} {L(lang, { en: "messages", fr: "messages", es: "messages", de: "messages", pt: "messages" })}
                         </p>
                       </div>
                       <button
@@ -321,7 +325,7 @@ export function ChatInterface({
                       <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                         <Bot className="w-12 h-12 mb-3 opacity-30" />
                         <p className="text-sm">
-                          {lang === "fr" ? "Démarrez la conversation" : "Start the conversation"}
+                          {L(lang, { en: "Start the conversation", fr: "Démarrez la conversation", es: "Start the conversation", de: "Start the conversation", pt: "Start the conversation" })}
                         </p>
                       </div>
                     ) : (
@@ -399,7 +403,7 @@ export function ChatInterface({
                   <div className="p-3 border-t border-border/50">
                     <div className="flex gap-2 items-end">
                       <textarea
-                        placeholder={lang === "fr" ? "Tapez votre message..." : "Type your message..."}
+                        placeholder={L(lang, { en: "Type your message...", fr: "Tapez votre message...", es: "Type your message...", de: "Type your message...", pt: "Type your message..." })}
                         value={input}
                         onChange={e => setInput(e.target.value)}
                         onKeyDown={e => {
@@ -421,7 +425,7 @@ export function ChatInterface({
                       </button>
                     </div>
                     <p className="text-[9px] text-muted-foreground mt-1.5 text-center">
-                      {lang === "fr" ? "Entrée pour envoyer · Maj+Entrée pour nouvelle ligne" : "Enter to send · Shift+Enter for new line"}
+                      {L(lang, { en: "Enter to send · Shift+Enter for new line", fr: "Entrée pour envoyer · Maj+Entrée pour nouvelle ligne", es: "Enter to send · Shift+Enter for new line", de: "Enter to send · Shift+Enter for new line", pt: "Enter to send · Shift+Enter for new line" })}
                     </p>
                   </div>
                 </>
@@ -429,10 +433,10 @@ export function ChatInterface({
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
                   <Bot className="w-16 h-16 mb-4 opacity-20" />
                   <p className="text-sm mb-1">
-                    {lang === "fr" ? "Sélectionnez ou créez une conversation" : "Select or create a conversation"}
+                    {L(lang, { en: "Select or create a conversation", fr: "Sélectionnez ou créez une conversation", es: "Select or create a conversation", de: "Select or create a conversation", pt: "Select or create a conversation" })}
                   </p>
                   <p className="text-xs">
-                    {lang === "fr" ? "Choisissez un agent personnalisé pour des réponses spécialisées" : "Choose a custom agent for specialized responses"}
+                    {L(lang, { en: "Choose a custom agent for specialized responses", fr: "Choisissez un agent personnalisé pour des réponses spécialisées", es: "Choose a custom agent for specialized responses", de: "Choose a custom agent for specialized responses", pt: "Choose a custom agent for specialized responses" })}
                   </p>
                 </div>
               )}

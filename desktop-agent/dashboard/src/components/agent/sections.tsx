@@ -39,6 +39,11 @@ import { AgentCreatorModal } from "@/components/agent/agent-creator";
 // SHARED COMPONENTS
 // ============================================================
 
+// Multi-language helper for inline strings
+function L(lang: Lang, texts: Record<string, string>): string {
+  return texts[lang] || texts.en;
+}
+
 export function SectionHeader({
   title, subtitle, icon: Icon, lang, actions,
 }: {
@@ -71,27 +76,27 @@ export function SectionHeader({
 const MODULES_LIST = ["screen", "files", "email", "calendar", "browser", "system", "windows", "code", "web", "voice", "plugin", "mcp", "vision", "slack"];
 
 const CAPABILITIES = [
-  { icon: Sparkles, label_en: "ReAct loop", label_fr: "Boucle ReAct", color: "#10B981" },
-  { icon: Code, label_en: "Code interpreter", label_fr: "Interpréteur code", color: "#06B6D4" },
-  { icon: Search, label_en: "Web search", label_fr: "Recherche web", color: "#06B6D4" },
-  { icon: Network, label_en: "Multi-agent", label_fr: "Multi-agent", color: "#EC4899" },
-  { icon: Brain, label_en: "Skill library", label_fr: "Bibliothèque skills", color: "#10B981" },
-  { icon: Zap, label_en: "GLM tool calling", label_fr: "GLM tool calling", color: "#F59E0B" },
-  { icon: Mic, label_en: "Voice control", label_fr: "Contrôle vocal", color: "#F59E0B" },
-  { icon: MessageSquare, label_en: "Long context", label_fr: "Contexte long", color: "#8B5CF6" },
-  { icon: Plug, label_en: "Plugin marketplace", label_fr: "Marché plugins", color: "#8B5CF6" },
-  { icon: Network, label_en: "MCP protocol", label_fr: "Protocole MCP", color: "#EC4899" },
-  { icon: Radio, label_en: "Vision streaming", label_fr: "Vision streaming", color: "#10B981" },
-  { icon: Cpu, label_en: "100% Windows", label_fr: "100% Windows", color: "#3B82F6" },
+  { icon: Sparkles, labels: { en: "ReAct loop", fr: "Boucle ReAct", es: "Bucle ReAct", de: "ReAct-Schleife", pt: "Loop ReAct" }, color: "#10B981" },
+  { icon: Code, labels: { en: "Code interpreter", fr: "Interpréteur code", es: "Intérprete de código", de: "Code-Interpreter", pt: "Interpretador de código" }, color: "#06B6D4" },
+  { icon: Search, labels: { en: "Web search", fr: "Recherche web", es: "Búsqueda web", de: "Websuche", pt: "Busca web" }, color: "#06B6D4" },
+  { icon: Network, labels: { en: "Multi-agent", fr: "Multi-agent", es: "Multi-agente", de: "Multi-Agent", pt: "Multi-agente" }, color: "#EC4899" },
+  { icon: Brain, labels: { en: "Skill library", fr: "Bibliothèque skills", es: "Biblioteca de skills", de: "Skill-Bibliothek", pt: "Biblioteca de skills" }, color: "#10B981" },
+  { icon: Zap, labels: { en: "GLM tool calling", fr: "GLM tool calling", es: "Llamada de herramientas GLM", de: "GLM Tool-Calling", pt: "Chamada de ferramentas GLM" }, color: "#F59E0B" },
+  { icon: Mic, labels: { en: "Voice control", fr: "Contrôle vocal", es: "Control por voz", de: "Sprachsteuerung", pt: "Controle por voz" }, color: "#F59E0B" },
+  { icon: MessageSquare, labels: { en: "Long context", fr: "Contexte long", es: "Contexto largo", de: "Langer Kontext", pt: "Contexto longo" }, color: "#8B5CF6" },
+  { icon: Plug, labels: { en: "Plugin marketplace", fr: "Marché plugins", es: "Mercado de plugins", de: "Plugin-Marktplatz", pt: "Mercado de plugins" }, color: "#8B5CF6" },
+  { icon: Network, labels: { en: "MCP protocol", fr: "Protocole MCP", es: "Protocolo MCP", de: "MCP-Protokoll", pt: "Protocolo MCP" }, color: "#EC4899" },
+  { icon: Radio, labels: { en: "Vision streaming", fr: "Vision streaming", es: "Transmisión de visión", de: "Vision-Streaming", pt: "Transmissão de visão" }, color: "#10B981" },
+  { icon: Cpu, labels: { en: "100% Windows", fr: "100% Windows", es: "100% Windows", de: "100% Windows", pt: "100% Windows" }, color: "#3B82F6" },
 ];
 
 const QUICK_ACTIONS = [
-  { icon: FileText, label_en: "Sort Downloads", label_fr: "Trier Téléch.", prompt_en: "Organize my Downloads folder by file type", prompt_fr: "Organise mon dossier Téléchargements par type de fichier", color: "#10B981" },
-  { icon: Mail, label_en: "Read emails", label_fr: "Lire emails", prompt_en: "Read my 5 latest unread emails and summarize them", prompt_fr: "Lis mes 5 derniers emails non lus et fais-moi un résumé", color: "#F59E0B" },
-  { icon: Calendar, label_en: "Events", label_fr: "Événements", prompt_en: "List my 10 upcoming calendar events", prompt_fr: "Liste mes 10 prochains événements de calendrier", color: "#8B5CF6" },
-  { icon: Monitor, label_en: "Describe screen", label_fr: "Décrire écran", prompt_en: "Describe what's currently on my screen", prompt_fr: "Décris ce qu'il y a actuellement sur mon écran", color: "#06B6D4" },
-  { icon: Cpu, label_en: "System info", label_fr: "Infos système", prompt_en: "Give me system info (CPU, RAM, disk)", prompt_fr: "Donne-moi les informations système (CPU, RAM, disque)", color: "#EC4899" },
-  { icon: Camera, label_en: "Screenshot", label_fr: "Capture", prompt_en: "Take a screenshot and analyze it", prompt_fr: "Prends une capture d'écran et analyse-la", color: "#10B981" },
+  { icon: FileText, labels: { en: "Sort Downloads", fr: "Trier Téléch.", es: "Ordenar Desc.", de: "Downloads sort.", pt: "Ordenar Down." }, prompts: { en: "Organize my Downloads folder by file type", fr: "Organise mon dossier Téléchargements par type de fichier", es: "Organiza mis descargas por tipo de archivo", de: "Ordne meine Downloads nach Dateityp", pt: "Organize meus downloads por tipo de arquivo" }, color: "#10B981" },
+  { icon: Mail, labels: { en: "Read emails", fr: "Lire emails", es: "Leer emails", de: "E-Mails lesen", pt: "Ler emails" }, prompts: { en: "Read my 5 latest unread emails and summarize them", fr: "Lis mes 5 derniers emails non lus et fais-moi un résumé", es: "Lee mis 5 últimos correos no leídos y resúmelos", de: "Lies meine 5 letzten ungelesenen E-Mails und fasse sie zusammen", pt: "Leia meus 5 últimos emails não lidos e resuma" }, color: "#F59E0B" },
+  { icon: Calendar, labels: { en: "Events", fr: "Événements", es: "Eventos", de: "Termine", pt: "Eventos" }, prompts: { en: "List my 10 upcoming calendar events", fr: "Liste mes 10 prochains événements de calendrier", es: "Lista mis 10 próximos eventos del calendario", de: "Liste meine 10 nächsten Kalendertermine", pt: "Liste meus 10 próximos eventos da agenda" }, color: "#8B5CF6" },
+  { icon: Monitor, labels: { en: "Describe screen", fr: "Décrire écran", es: "Describir pantalla", de: "Bildschirm beschreiben", pt: "Descrever tela" }, prompts: { en: "Describe what's currently on my screen", fr: "Décris ce qu'il y a actuellement sur mon écran", es: "Describe lo que hay actualmente en mi pantalla", de: "Beschreibe was aktuell auf meinem Bildschirm ist", pt: "Descreva o que está na minha tela agora" }, color: "#06B6D4" },
+  { icon: Cpu, labels: { en: "System info", fr: "Infos système", es: "Info sistema", de: "Systeminfo", pt: "Info sistema" }, prompts: { en: "Give me system info (CPU, RAM, disk)", fr: "Donne-moi les informations système (CPU, RAM, disque)", es: "Dame información del sistema (CPU, RAM, disco)", de: "Gib mir Systeminfo (CPU, RAM, Festplatte)", pt: "Dê informações do sistema (CPU, RAM, disco)" }, color: "#EC4899" },
+  { icon: Camera, labels: { en: "Screenshot", fr: "Capture", es: "Captura", de: "Screenshot", pt: "Captura" }, prompts: { en: "Take a screenshot and analyze it", fr: "Prends une capture d'écran et analyse-la", es: "Toma una captura de pantalla y analízala", de: "Mach einen Screenshot und analysiere ihn", pt: "Tire um screenshot e analise" }, color: "#10B981" },
 ];
 
 export function OverviewSection({
@@ -115,7 +120,7 @@ export function OverviewSection({
     setSubmitting(true);
     try {
       await agentApi.submitTask(taskInput, "dashboard");
-      toast({ title: lang === "fr" ? "Tâche envoyée" : "Task sent" });
+      toast({ title: L(lang, { en: "Task sent", fr: "Tâche envoyée", es: "Tarea enviada", de: "Aufgabe gesendet", pt: "Tarefa enviada" }) });
       setTaskInput("");
     } catch (e) {
       toast({ title: tr("toast.error"), description: e instanceof Error ? e.message : "", variant: "destructive" });
@@ -129,8 +134,8 @@ export function OverviewSection({
   return (
     <div className="max-w-6xl mx-auto">
       <SectionHeader
-        title={lang === "fr" ? "Aperçu" : "Overview"}
-        subtitle={lang === "fr" ? "État de l'agent et actions rapides" : "Agent status and quick actions"}
+        title={L(lang, { en: "Overview", fr: "Aperçu", es: "Resumen", de: "Übersicht", pt: "Visão Geral" })}
+        subtitle={L(lang, { en: "Agent status and quick actions", fr: "État de l'agent et actions rapides", es: "Estado del agente y acciones rápidas", de: "Agent-Status und Schnellaktionen", pt: "Status do agente e ações rápidas" })}
         icon={Bot}
         lang={lang}
         actions={
@@ -170,7 +175,7 @@ export function OverviewSection({
           {isLive && (
             <motion.span className="ml-auto text-[10px] font-mono uppercase text-primary flex items-center gap-1" animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
               <VoiceWaveform active={isLive} />
-              {lang === "fr" ? "agent actif" : "agent busy"}
+              {L(lang, { en: "agent busy", fr: "agent actif", es: "agente activo", de: "Agent beschäftigt", pt: "agente ativo" })}
             </motion.span>
           )}
         </div>
@@ -186,11 +191,11 @@ export function OverviewSection({
           {QUICK_ACTIONS.map(qa => {
             const Icon = qa.icon;
             return (
-              <button key={qa.label_en} onClick={() => setTaskInput(lang === "fr" ? qa.prompt_fr : qa.prompt_en)}
+              <button key={qa.labels.en} onClick={() => setTaskInput(qa.prompts[lang] || qa.prompts.en)}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border border-border/50 bg-card/30 hover:bg-accent/30 transition-all hover:scale-105"
                 style={{ borderColor: `${qa.color}30` }}>
                 <Icon className="w-3 h-3" style={{ color: qa.color }} />
-                {lang === "fr" ? qa.label_fr : qa.label_en}
+                {qa.labels[lang] || qa.labels.en}
               </button>
             );
           })}
@@ -199,7 +204,7 @@ export function OverviewSection({
           <span className="text-[10px] text-muted-foreground font-mono">⌘+Enter</span>
           <Button size="sm" onClick={submitTask} disabled={!taskInput.trim() || submitting} className="gap-1.5">
             <Send className="w-3.5 h-3.5" />
-            {submitting ? (lang === "fr" ? "Envoi..." : "Sending...") : tr("dash.send")}
+            {submitting ? L(lang, { en: "Sending...", fr: "Envoi...", es: "Enviando...", de: "Senden...", pt: "Enviando..." }) : tr("dash.send")}
           </Button>
         </div>
       </GlassCard>
@@ -209,7 +214,7 @@ export function OverviewSection({
         <GlassCard className="p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
             <Cpu className="w-3.5 h-3.5" />
-            {lang === "fr" ? "Modules" : "Modules"} ({MODULES_LIST.length})
+            {L(lang, { en: "Modules", fr: "Modules", es: "Módulos", de: "Module", pt: "Módulos" })} ({MODULES_LIST.length})
           </h3>
           <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
             {MODULES_LIST.map((m, i) => (
@@ -223,7 +228,7 @@ export function OverviewSection({
         <GlassCard className="p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5" />
-            {lang === "fr" ? "Capacités" : "Capabilities"} ({CAPABILITIES.length})
+            {L(lang, { en: "Capabilities", fr: "Capacités", es: "Capacidades", de: "Fähigkeiten", pt: "Capacidades" })} ({CAPABILITIES.length})
           </h3>
           <div className="grid grid-cols-2 gap-2">
             {CAPABILITIES.map((cap, i) => {
@@ -233,7 +238,7 @@ export function OverviewSection({
                   <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: `${cap.color}15`, border: `1px solid ${cap.color}30` }}>
                     <Icon className="w-3 h-3" style={{ color: cap.color }} />
                   </div>
-                  <span className="text-foreground/80 truncate">{lang === "fr" ? cap.label_fr : cap.label_en}</span>
+                  <span className="text-foreground/80 truncate">{cap.labels[lang] || cap.labels.en}</span>
                   <Circle className="w-1 h-1 fill-emerald-500 text-emerald-500 ml-auto flex-shrink-0" />
                 </motion.div>
               );
@@ -292,7 +297,7 @@ export function TasksSection({ lang }: { lang: Lang }) {
       setTaskInput("");
       setShowInput(false);
       setLiveTrace([]);
-      toast({ title: lang === "fr" ? "Tâche envoyée" : "Task sent" });
+      toast({ title: L(lang, { en: "Task sent", fr: "Tâche envoyée", es: "Tarea enviada", de: "Aufgabe gesendet", pt: "Tarefa enviada" }) });
       setTimeout(loadData, 500);
     } catch (e) {
       toast({ title: tr("toast.error"), description: e instanceof Error ? e.message : "", variant: "destructive" });
@@ -302,14 +307,14 @@ export function TasksSection({ lang }: { lang: Lang }) {
   return (
     <div className="max-w-4xl mx-auto">
       <SectionHeader
-        title={lang === "fr" ? "Tâches" : "Tasks"}
-        subtitle={lang === "fr" ? "Soumettez des tâches et consultez l'historique" : "Submit tasks and view history"}
+        title={L(lang, { en: "Tasks", fr: "Tâches", es: "Tareas", de: "Aufgaben", pt: "Tarefas" })}
+        subtitle={L(lang, { en: "Submit tasks and view history", fr: "Soumettez des tâches et consultez l'historique", es: "Enviar tareas y ver historial", de: "Aufgaben senden und Verlauf anzeigen", pt: "Enviar tarefas e ver histórico" })}
         icon={ListTodo}
         lang={lang}
         actions={
           <Button size="sm" onClick={() => setShowInput(!showInput)} className="gap-1.5">
             <Plus className="w-3.5 h-3.5" />
-            {lang === "fr" ? "Nouvelle tâche" : "New Task"}
+            {L(lang, { en: "New Task", fr: "Nouvelle tâche", es: "Nueva Tarea", de: "Neue Aufgabe", pt: "Nova Tarefa" })}
           </Button>
         }
       />
@@ -329,10 +334,10 @@ export function TasksSection({ lang }: { lang: Lang }) {
                 autoFocus
               />
               <div className="flex justify-end gap-2 mt-3">
-                <Button size="sm" variant="ghost" onClick={() => setShowInput(false)}>{lang === "fr" ? "Annuler" : "Cancel"}</Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowInput(false)}>{L(lang, { en: "Cancel", fr: "Annuler", es: "Cancelar", de: "Abbrechen", pt: "Cancelar" })}</Button>
                 <Button size="sm" onClick={submitTask} disabled={!taskInput.trim() || submitting} className="gap-1.5">
                   <Send className="w-3.5 h-3.5" />
-                  {submitting ? (lang === "fr" ? "Envoi..." : "Sending...") : tr("dash.send")}
+                  {submitting ? L(lang, { en: "Sending...", fr: "Envoi...", es: "Enviando...", de: "Senden...", pt: "Enviando..." }) : tr("dash.send")}
                 </Button>
               </div>
             </GlassCard>
@@ -345,7 +350,7 @@ export function TasksSection({ lang }: { lang: Lang }) {
         <GlassCard className="p-4 mb-4 border-primary/30" glow>
           <h3 className="text-xs font-semibold uppercase tracking-wider text-primary mb-3 flex items-center gap-2">
             <motion.div className="w-2 h-2 rounded-full bg-primary" animate={{ scale: [1, 1.5, 1] }} transition={{ duration: 1, repeat: Infinity }} />
-            {lang === "fr" ? "Raisonnement en direct" : "Live Reasoning"}
+            {L(lang, { en: "Live Reasoning", fr: "Raisonnement en direct", es: "Razonamiento en vivo", de: "Live-Denken", pt: "Raciocínio ao vivo" })}
           </h3>
           <ThinkingStream traces={liveTrace} live={true} />
         </GlassCard>
@@ -354,7 +359,7 @@ export function TasksSection({ lang }: { lang: Lang }) {
       {/* Task history */}
       <div className="space-y-2">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-          {lang === "fr" ? "Historique" : "History"} ({tasks.length})
+          {L(lang, { en: "History", fr: "Historique", es: "Historial", de: "Verlauf", pt: "Histórico" })} ({tasks.length})
         </h3>
         {tasks.length === 0 ? (
           <GlassCard className="p-8 text-center text-sm text-muted-foreground">
@@ -401,16 +406,16 @@ export function MonitorSection({ lang }: { lang: Lang }) {
   }, [logs, activeTab]);
 
   const tabs = [
-    { id: "logs" as const, label: lang === "fr" ? "Logs" : "Logs", icon: Terminal, count: logs.length },
-    { id: "screens" as const, label: lang === "fr" ? "Captures" : "Screenshots", icon: ImageIcon, count: screenshots.length },
-    { id: "audit" as const, label: lang === "fr" ? "Audit" : "Audit", icon: Shield, count: auditEntries.length },
+    { id: "logs" as const, label: L(lang, { en: "Logs", fr: "Logs", es: "Registros", de: "Protokolle", pt: "Logs" }), icon: Terminal, count: logs.length },
+    { id: "screens" as const, label: L(lang, { en: "Screenshots", fr: "Captures", es: "Capturas", de: "Screenshots", pt: "Capturas" }), icon: ImageIcon, count: screenshots.length },
+    { id: "audit" as const, label: L(lang, { en: "Audit", fr: "Audit", es: "Auditoría", de: "Audit", pt: "Auditoria" }), icon: Shield, count: auditEntries.length },
   ];
 
   return (
     <div className="max-w-5xl mx-auto">
       <SectionHeader
-        title={lang === "fr" ? "Moniteur" : "Monitor"}
-        subtitle={lang === "fr" ? "Logs, captures d'écran et audit" : "Logs, screenshots, and audit trail"}
+        title={L(lang, { en: "Monitor", fr: "Moniteur", es: "Monitor", de: "Monitor", pt: "Monitor" })}
+        subtitle={L(lang, { en: "Logs, screenshots, and audit trail", fr: "Logs, captures d'écran et audit", es: "Registros, capturas y auditoría", de: "Protokolle, Screenshots und Audit-Trail", pt: "Logs, capturas e auditoria" })}
         icon={Activity}
         lang={lang}
       />
@@ -438,7 +443,7 @@ export function MonitorSection({ lang }: { lang: Lang }) {
               {logs.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
                   <Terminal className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  {lang === "fr" ? "Aucun log. Connectez l'agent Python." : "No logs. Connect the Python agent."}
+                  {L(lang, { en: "No logs. Connect the Python agent.", fr: "Aucun log. Connectez l'agent Python.", es: "Sin registros. Conecta el agente Python.", de: "Keine Protokolle. Verbinde den Python-Agenten.", pt: "Sem logs. Conecte o agente Python." })}
                 </div>
               ) : (
                 logs.map((log, i) => {
@@ -464,7 +469,7 @@ export function MonitorSection({ lang }: { lang: Lang }) {
             <div className="flex justify-end mb-3">
               <Button size="sm" variant="outline" onClick={() => agentApi.captureScreenshot().then(() => setTimeout(() => location.reload(), 500))} className="gap-1.5">
                 <Camera className="w-3.5 h-3.5" />
-                {lang === "fr" ? "Capturer" : "Capture"}
+                {L(lang, { en: "Capture", fr: "Capturer", es: "Capturar", de: "Aufnehmen", pt: "Capturar" })}
               </Button>
             </div>
             {screenshots.length === 0 ? (
@@ -500,8 +505,8 @@ export function AnalyticsSection({ lang }: { lang: Lang }) {
   return (
     <div className="max-w-5xl mx-auto">
       <SectionHeader
-        title={lang === "fr" ? "Analytique" : "Analytics"}
-        subtitle={lang === "fr" ? "Coûts, activité et statistiques" : "Costs, activity, and statistics"}
+        title={L(lang, { en: "Analytics", fr: "Analytique", es: "Analítica", de: "Analytik", pt: "Análises" })}
+        subtitle={L(lang, { en: "Costs, activity, and statistics", fr: "Coûts, activité et statistiques", es: "Costos, actividad y estadísticas", de: "Kosten, Aktivität und Statistiken", pt: "Custos, atividade e estatísticas" })}
         icon={BarChart3}
         lang={lang}
       />
@@ -528,8 +533,8 @@ export function AutomationSection({ lang }: { lang: Lang }) {
   return (
     <div className="max-w-5xl mx-auto">
       <SectionHeader
-        title={lang === "fr" ? "Automatisation" : "Automation"}
-        subtitle={lang === "fr" ? "Tâches planifiées, watchers, webhooks, templates" : "Scheduled tasks, watchers, webhooks, templates"}
+        title={L(lang, { en: "Automation", fr: "Automatisation", es: "Automatización", de: "Automatisierung", pt: "Automação" })}
+        subtitle={L(lang, { en: "Scheduled tasks, watchers, webhooks, templates", fr: "Tâches planifiées, watchers, webhooks, templates", es: "Tareas programadas, watchers, webhooks, plantillas", de: "Geplante Aufgaben, Watcher, Webhooks, Vorlagen", pt: "Tarefas agendadas, watchers, webhooks, modelos" })}
         icon={Zap}
         lang={lang}
       />
@@ -559,8 +564,8 @@ export function KnowledgeSection({ lang }: { lang: Lang }) {
   return (
     <div className="max-w-4xl mx-auto">
       <SectionHeader
-        title={lang === "fr" ? "Connaissance" : "Knowledge"}
-        subtitle={lang === "fr" ? "Base de connaissances RAG et mémoire vectorielle" : "RAG knowledge base and vector memory"}
+        title={L(lang, { en: "Knowledge", fr: "Connaissance", es: "Conocimiento", de: "Wissen", pt: "Conhecimento" })}
+        subtitle={L(lang, { en: "RAG knowledge base and vector memory", fr: "Base de connaissances RAG et mémoire vectorielle", es: "Base de conocimiento RAG y memoria vectorial", de: "RAG-Wissensbasis und Vektorspeicher", pt: "Base de conhecimento RAG e memória vetorial" })}
         icon={BookOpen}
         lang={lang}
       />
@@ -571,10 +576,10 @@ export function KnowledgeSection({ lang }: { lang: Lang }) {
         <GlassCard className="p-4">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
             <Brain className="w-3.5 h-3.5" />
-            {lang === "fr" ? "Mémoire vectorielle" : "Vector Memory"}
+            {L(lang, { en: "Vector Memory", fr: "Mémoire vectorielle", es: "Memoria vectorial", de: "Vektorspeicher", pt: "Memória vetorial" })}
           </h4>
           <p className="text-xs text-muted-foreground text-center py-4">
-            {lang === "fr" ? "Mémoire sémantique longue durée" : "Long-term semantic memory"}
+            {L(lang, { en: "Long-term semantic memory", fr: "Mémoire sémantique longue durée", es: "Memoria semántica a largo plazo", de: "Langzeit-Semantikspeicher", pt: "Memória semântica de longo prazo" })}
           </p>
         </GlassCard>
       </div>

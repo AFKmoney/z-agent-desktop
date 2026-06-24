@@ -21,85 +21,65 @@ export type SectionId =
 
 interface NavItem {
   id: SectionId;
-  label: string;
-  label_fr: string;
+  labels: Record<string, string>;
   icon: typeof LayoutDashboard;
-  description: string;
-  description_fr: string;
+  descriptions: Record<string, string>;
 }
 
 const NAV_ITEMS: NavItem[] = [
   {
     id: "overview",
-    label: "Overview",
-    label_fr: "Aperçu",
+    labels: { en: "Overview", fr: "Aperçu", es: "Resumen", de: "Übersicht", pt: "Visão Geral" },
     icon: LayoutDashboard,
-    description: "Agent status and quick actions",
-    description_fr: "Statut de l'agent et actions rapides",
+    descriptions: { en: "Agent status and quick actions", fr: "Statut de l'agent et actions rapides", es: "Estado del agente y acciones rápidas", de: "Agent-Status und Schnellaktionen", pt: "Status do agente e ações rápidas" },
   },
   {
     id: "chat",
-    label: "Chat",
-    label_fr: "Chat",
+    labels: { en: "Chat", fr: "Chat", es: "Chat", de: "Chat", pt: "Chat" },
     icon: MessageCircle,
-    description: "Conversations with custom agents",
-    description_fr: "Conversations avec agents personnalisés",
+    descriptions: { en: "Conversations with custom agents", fr: "Conversations avec agents personnalisés", es: "Conversaciones con agentes personalizados", de: "Konversationen mit benutzerdefinierten Agenten", pt: "Conversas com agentes personalizados" },
   },
   {
     id: "tasks",
-    label: "Tasks",
-    label_fr: "Tâches",
+    labels: { en: "Tasks", fr: "Tâches", es: "Tareas", de: "Aufgaben", pt: "Tarefas" },
     icon: ListTodo,
-    description: "Submit tasks and view history",
-    description_fr: "Soumettre des tâches et voir l'historique",
+    descriptions: { en: "Submit tasks and view history", fr: "Soumettre des tâches et voir l'historique", es: "Enviar tareas y ver historial", de: "Aufgaben senden und Verlauf anzeigen", pt: "Enviar tarefas e ver histórico" },
   },
   {
     id: "monitor",
-    label: "Monitor",
-    label_fr: "Moniteur",
+    labels: { en: "Monitor", fr: "Moniteur", es: "Monitor", de: "Monitor", pt: "Monitor" },
     icon: Activity,
-    description: "Live logs, screenshots, audit trail",
-    description_fr: "Logs en direct, captures, audit",
+    descriptions: { en: "Live logs, screenshots, audit trail", fr: "Logs en direct, captures, audit", es: "Registros en vivo, capturas, auditoría", de: "Live-Protokolle, Screenshots, Audit-Trail", pt: "Logs ao vivo, capturas, auditoria" },
   },
   {
     id: "analytics",
-    label: "Analytics",
-    label_fr: "Analytique",
+    labels: { en: "Analytics", fr: "Analytique", es: "Analítica", de: "Analytik", pt: "Análises" },
     icon: BarChart3,
-    description: "Costs, activity heatmap, stats",
-    description_fr: "Coûts, activité, statistiques",
+    descriptions: { en: "Costs, activity heatmap, stats", fr: "Coûts, activité, statistiques", es: "Costos, mapa de actividad, estadísticas", de: "Kosten, Aktivitäts-Heatmap, Statistiken", pt: "Custos, mapa de atividade, estatísticas" },
   },
   {
     id: "automation",
-    label: "Automation",
-    label_fr: "Automatisation",
+    labels: { en: "Automation", fr: "Automatisation", es: "Automatización", de: "Automatisierung", pt: "Automação" },
     icon: Zap,
-    description: "Scheduled tasks, watchers, webhooks",
-    description_fr: "Tâches planifiées, watchers, webhooks",
+    descriptions: { en: "Scheduled tasks, watchers, webhooks", fr: "Tâches planifiées, watchers, webhooks", es: "Tareas programadas, watchers, webhooks", de: "Geplante Aufgaben, Watcher, Webhooks", pt: "Tarefas agendadas, watchers, webhooks" },
   },
   {
     id: "knowledge",
-    label: "Knowledge",
-    label_fr: "Connaissance",
+    labels: { en: "Knowledge", fr: "Connaissance", es: "Conocimiento", de: "Wissen", pt: "Conhecimento" },
     icon: BookOpen,
-    description: "RAG documents and vector memory",
-    description_fr: "Documents RAG et mémoire vectorielle",
+    descriptions: { en: "RAG documents and vector memory", fr: "Documents RAG et mémoire vectorielle", es: "Documentos RAG y memoria vectorial", de: "RAG-Dokumente und Vektorspeicher", pt: "Documentos RAG e memória vetorial" },
   },
   {
     id: "agents",
-    label: "Agents",
-    label_fr: "Agents",
+    labels: { en: "Agents", fr: "Agents", es: "Agentes", de: "Agenten", pt: "Agentes" },
     icon: Users,
-    description: "Create and manage custom agents",
-    description_fr: "Créer et gérer des agents personnalisés",
+    descriptions: { en: "Create and manage custom agents", fr: "Créer et gérer des agents personnalisés", es: "Crear y gestionar agentes personalizados", de: "Benutzerdefinierte Agenten erstellen und verwalten", pt: "Criar e gerenciar agentes personalizados" },
   },
   {
     id: "settings",
-    label: "Settings",
-    label_fr: "Paramètres",
+    labels: { en: "Settings", fr: "Paramètres", es: "Ajustes", de: "Einstellungen", pt: "Configurações" },
     icon: SettingsIcon,
-    description: "API keys and configuration",
-    description_fr: "Clés API et configuration",
+    descriptions: { en: "API keys and configuration", fr: "Clés API et configuration", es: "Claves API y configuración", de: "API-Schlüssel und Konfiguration", pt: "Chaves de API e configuração" },
   },
 ];
 
@@ -155,7 +135,7 @@ export function Sidebar({
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.03 }}
-              title={lang === "fr" ? item.description_fr : item.description}
+              title={item.descriptions[lang] || item.descriptions.en}
             >
               {isActive && (
                 <motion.div
@@ -165,7 +145,7 @@ export function Sidebar({
               )}
               <Icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-primary")} />
               <span className="text-sm font-medium truncate">
-                {lang === "fr" ? item.label_fr : item.label}
+                {item.labels[lang] || item.labels.en}
               </span>
             </motion.button>
           );
@@ -191,7 +171,7 @@ export function Sidebar({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              {lang === "fr" ? "État" : "State"}
+              {lang === "fr" ? "État" : lang === "es" ? "Estado" : lang === "de" ? "Zustand" : lang === "pt" ? "Estado" : "State"}
             </p>
             <p className="text-xs font-mono font-medium truncate capitalize">{agentState}</p>
           </div>

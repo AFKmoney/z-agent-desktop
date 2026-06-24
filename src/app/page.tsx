@@ -18,6 +18,10 @@ import { ChatInterface } from "@/components/agent/chat-interface";
 import { AgentCreatorModal } from "@/components/agent/agent-creator";
 import { CommandPalette } from "@/components/agent";
 import { ParticleBackground } from "@/components/agent";
+// Multi-language helper
+function L(lang: string, texts: Record<string, string>): string {
+  return texts[lang] || texts.en;
+}
 
 export default function Dashboard() {
   const [lang, setLang] = useState<Lang>(() => typeof window !== "undefined" ? detectBrowserLang() : "en");
@@ -95,20 +99,20 @@ export default function Dashboard() {
             <div className="flex items-center gap-1.5 ml-auto">
               <Button size="sm" variant="ghost" onClick={() => setPaletteOpen(true)} className="gap-2 text-xs">
                 <Command className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{lang === "fr" ? "Commande" : "Command"}</span>
+                <span className="hidden sm:inline">{L(lang, { en: "Command", fr: "Commande", es: "Command", de: "Command", pt: "Command" })}</span>
                 <kbd className="text-[9px] font-mono bg-muted/60 px-1 py-0.5 rounded">⌘K</kbd>
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setChatOpen(true)} className="gap-1.5 text-xs px-2" title="Chat">
                 <MessageCircle className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">{lang === "fr" ? "Chat" : "Chat"}</span>
+                <span className="hidden md:inline">{L(lang, { en: "Chat", fr: "Chat", es: "Chat", de: "Chat", pt: "Chat" })}</span>
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setAgentsOpen(true)} className="gap-1.5 text-xs px-2" title="Agents">
                 <Users className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">{lang === "fr" ? "Agents" : "Agents"}</span>
+                <span className="hidden md:inline">{L(lang, { en: "Agents", fr: "Agents", es: "Agents", de: "Agents", pt: "Agents" })}</span>
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setSection("settings")} className="gap-1.5 text-xs px-2" title={lang === "fr" ? "Paramètres" : "Settings"}>
+              <Button size="sm" variant="ghost" onClick={() => setSection("settings")} className="gap-1.5 text-xs px-2" title={L(lang, { en: "Settings", fr: "Paramètres", es: "Settings", de: "Settings", pt: "Settings" })}>
                 <SettingsIcon className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">{lang === "fr" ? "Paramètres" : "Settings"}</span>
+                <span className="hidden md:inline">{L(lang, { en: "Settings", fr: "Paramètres", es: "Settings", de: "Settings", pt: "Settings" })}</span>
               </Button>
               <LanguageSelector
                 currentLang={lang}
@@ -153,7 +157,7 @@ export default function Dashboard() {
         {/* Footer */}
         <footer className="border-t border-border/50 py-3 px-6">
           <div className="flex justify-between items-center text-[10px] text-muted-foreground font-mono">
-            <span>Z.AGENT v4.0 · {lang === "fr" ? "propulsé par z.ai GLM" : "powered by z.ai GLM"}</span>
+            <span>Z.AGENT v4.0 · {L(lang, { en: "powered by z.ai GLM", fr: "propulsé par z.ai GLM", es: "powered by z.ai GLM", de: "powered by z.ai GLM", pt: "powered by z.ai GLM" })}</span>
             <span className="flex items-center gap-1.5">
               <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-emerald-500" : "bg-red-500")} />
               {state}
