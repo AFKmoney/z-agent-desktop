@@ -91,14 +91,13 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 playwright install chromium
 
-# Configure
-cp .env.example .env
-# Edit .env — add at least ZAI_API_KEY (https://z.ai/)
-
-# Run
-python main.py --check          # Verify config
+# Run (configure API keys from the dashboard — no .env editing needed!)
 python main.py                  # Start (Telegram + Web API + Notifier)
 ```
+
+Then open the dashboard at http://localhost:3000, click **⚙️ Settings**, and configure your API keys directly in the app. You can also test each key before saving.
+
+> 💡 **No more `.env` editing** — all 15 environment variables (10 LLM providers, Telegram, Email, Slack, SDK) can be configured from the dashboard Settings panel. Sensitive values are masked, and each LLM key can be tested with one click.
 
 ### Other modes
 
@@ -110,7 +109,23 @@ python main.py --check          # Configuration check
 
 ## ⚙️ Configuration
 
-### Environment Variables (.env)
+### Option 1: Dashboard Settings (recommended)
+
+The easiest way to configure Z.AGENT — no file editing needed:
+
+1. Start the agent: `python main.py`
+2. Open the dashboard: http://localhost:3000
+3. Click **⚙️ Settings** in the header
+4. Fill in your API keys (sensitive values are hidden by default)
+5. Click **Test** to verify each key works
+6. Click **Save** — the `.env` file is written automatically
+7. Restart the agent for changes to take effect
+
+All 15 environment variables are configurable from the Settings panel, organized into 5 categories: LLM Providers, Telegram, Email, Agent Settings, Integrations.
+
+### Option 2: Manual .env file
+
+You can also create a `.env` file manually:
 
 ```bash
 # Required
@@ -184,6 +199,7 @@ Open http://localhost:3000
 | **Prompt Templates** | Browse and use templates |
 | **Backup Panel** | Create and restore backups |
 | **Smart Suggestions** | Predicted next actions |
+| **⚙️ Settings Panel** | Configure all API keys directly — test keys, no .env editing |
 | **Bilingual EN/FR** | Toggle in header |
 
 ## 🏗️ Architecture
