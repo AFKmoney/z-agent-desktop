@@ -1,121 +1,127 @@
-# Z.AGENT — Autonomous Desktop Agent v4.0
+<div align="center">
 
-> **100x more powerful than OpenHands, Claude Code, and Hermes** — 10 LLM providers, 88 actions, 16 modules, 26 core components, ReAct loop, vector memory, auto-skill creator, webhooks, file watcher, MCP, plugin marketplace, vision streaming, and a cinematic command-center UI.
+# 🤖 Z.AGENT
 
-Autonomous desktop agent that controls your computer when you're away. Send tasks in natural language via Telegram, the agent plans, executes, and notifies you — using any of 10 LLM providers (z.ai GLM, OpenAI, Claude, Mistral, NVIDIA, Groq, DeepSeek, Ollama, Together, Fireworks).
+### Autonomous Desktop Agent v4.0
 
-## Quick start
+**100x more powerful than OpenHands, Claude Code, and Hermes**
+
+[![CI](https://github.com/AFKmoney/z-agent-desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/AFKmoney/z-agent-desktop/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-cyan.svg)](https://github.com/AFKmoney/z-agent-desktop/pulls)
+[![Discussions](https://img.shields.io/badge/Discussions-welcome-purple.svg)](https://github.com/AFKmoney/z-agent-desktop/discussions)
+
+[Features](#-features) · [Quick Start](#-quick-start) · [Dashboard](#-dashboard) · [Docs](https://afkmoney.github.io/z-agent-desktop/) · [Configuration](#-configuration) · [Contributing](#-contributing)
+
+</div>
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#-overview)
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [Configuration](#-configuration)
+- [Dashboard](#-dashboard)
+- [Architecture](#-architecture)
+- [Stats](#-stats)
+- [Comparison](#-comparison-with-competitors)
+- [Contributing](#-contributing)
+- [Links](#-links)
+- [License](#-license)
+
+## 🎯 Overview
+
+Z.AGENT is an autonomous desktop agent that controls your computer when you're away. Send tasks in natural language via **Telegram** (text or voice), the agent plans, executes, and notifies you — using any of **10 LLM providers** with automatic fallback.
+
+**Use cases:** file organization, email management, meeting prep, browser automation, system maintenance, scheduled tasks, document research, voice control — all from your phone.
+
+## ✨ Features
+
+### 🧠 Agentic Core
+- **ReAct Loop** — Reason → Act → Observe → Critique. Adapts to failures, replans mid-task
+- **Multi-Agent Orchestrator** — Spawns specialized sub-agents (researcher, coder, file_organizer) running in parallel
+- **Skill Library** — Agent learns reusable skills from successful tasks
+- **Auto Skill Creator** — Automatically detects recurring patterns and creates skills
+- **Native Tool Calling** — Multi-round function calling (GLM, OpenAI, Claude, Mistral)
+- **Long-term Conversation Context** — Persistent multi-task memory with summary compaction
+
+### 🧠 Memory Systems
+- **Vector Memory** — Semantic long-term memory with embeddings, cosine similarity
+- **Conversation Context** — Per-session context that compacts old turns
+- **Skill Library** — Saved action sequences reusable across tasks
+- **Knowledge Base (RAG)** — Embed your documents (PDF, DOCX, TXT) for semantic search
+
+### 🔌 Integrations
+- **10 LLM Providers** — z.ai, OpenAI, Anthropic, Mistral, NVIDIA, Groq, DeepSeek, Ollama, Together, Fireworks
+- **Telegram Bot** — Text + voice messages, proactive push notifications
+- **Webhooks** — HTTP endpoints for GitHub, Stripe, Slack, IoT
+- **File Watcher** — Trigger tasks on file system events
+- **MCP** — Model Context Protocol client
+- **Plugin Marketplace** — Install third-party plugins
+
+### 📊 Analytics & Monitoring
+- **Cost Tracker** — Track every API call's token usage and cost (USD)
+- **Audit Log** — Append-only security trail of every action
+- **Activity Heatmap** — GitHub-style 90-day activity grid
+- **Scheduled Tasks** — Cron/interval/one-time recurring tasks
+- **Smart Suggestions** — Predicts your next action
+- **Prompt Templates** — 8 built-in + custom templates
+- **Backup & Restore** — Full backup of all agent data
+
+### 🛡️ Security
+- **Full autonomy mode** (configurable) — or confirmation/whitelist/sandbox modes
+- **Protected paths** — ~/.ssh, ~/.aws, system files never touched
+- **Safe delete** — Trash by default
+- **Blocked actions** — format disk, rm -rf /, etc. always refused
+- **Audit trail** — Every action logged with redacted sensitive params
+
+## 🚀 Quick Start
 
 ```bash
 git clone https://github.com/AFKmoney/z-agent-desktop.git
 cd z-agent-desktop
 
+# Install
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 playwright install chromium
 
+# Configure
 cp .env.example .env
-# Edit .env with your API keys (at least ZAI_API_KEY)
+# Edit .env — add at least ZAI_API_KEY (https://z.ai/)
 
+# Run
 python main.py --check          # Verify config
 python main.py                  # Start (Telegram + Web API + Notifier)
 ```
 
-## What it can do
+### Other modes
 
-| Module | Description |
-|--------|-------------|
-| 🖱️ **Screen Control** | Cursor, keyboard, windows — generic UI automation via PyAutoGUI + VLM |
-| 👁️ **VLM Perception** | GLM-4V analyzes your screen in real time to understand the UI |
-| 📁 **Files** | Organize, move, rename, search, read/write files |
-| 📧 **Email** | IMAP/SMTP — read, send, reply, search (Gmail, Outlook, etc.) |
-| 📅 **Calendar** | ICS — list, create, delete events, reminders |
-| 🌐 **Browser** | Playwright — open, click, fill, extract content |
-| ⚙️ **System** | Launch apps, manage processes, notifications, clipboard |
-| 🪟 **Windows** | PowerShell, registry, services, COM (Outlook/Excel/Word), windows, Wi-Fi, volume, brightness, wallpaper, event log — **100% Windows desktop control** |
-| 🐍 **Code Interpreter** | Sandboxed Python execution for data analysis and custom automation |
-| 🔍 **Web Search** | Real-time web search and page reading via z-ai-web-dev-sdk |
-| 🎙️ **Voice Control** | Whisper STT + TTS — send voice messages to Telegram |
-| 🔌 **Plugin Marketplace** | Install third-party plugins from local paths, zips, or git URLs |
-| 🌐 **MCP** | Model Context Protocol — connect to filesystem, GitHub, Postgres, Slack servers |
-| 📹 **Vision Streaming** | Continuous screen monitoring with change detection and proactive alerts |
-| 📚 **Knowledge Base** | RAG with document chunking, embeddings, semantic search |
-| 💬 **Slack** | Send messages, files, list channels |
-
-## Killer features
-
-### 🧠 Agentic core
-- **ReAct loop** — Reason → Act → Observe → Critique. Adapts to failures, replans mid-task
-- **Multi-agent orchestrator** — Spawns specialized sub-agents (researcher, coder, file_organizer) running in parallel
-- **Skill library** — Agent learns reusable skills from successful tasks
-- **Auto skill creator** — Automatically detects recurring patterns and creates skills (min 2 occurrences, 70% success rate)
-- **Native GLM tool calling** — Multi-round function calling
-- **Long-term conversation context** — Persistent multi-task memory with summary compaction
-
-### 🧠 Memory systems
-- **Vector memory** — Semantic long-term memory with embeddings, cosine similarity, importance/recency/frequency boosting
-- **Conversation context** — Per-session context that compacts old turns into summaries
-- **Skill library** — Saved action sequences reusable across tasks
-- **Knowledge base (RAG)** — Embed your documents for semantic search
-
-### 🔌 Integrations
-- **10 LLM providers** — z.ai, OpenAI, Anthropic Claude, Mistral, NVIDIA NIM, Groq, DeepSeek, Ollama, Together AI, Fireworks — with automatic fallback and per-role routing
-- **Telegram bot** — Send tasks via text or voice messages, receive proactive push notifications
-- **Webhooks** — Expose the agent via HTTP for GitHub, Stripe, Slack, IoT integrations
-- **File watcher** — Trigger tasks on file system events (created/modified/deleted)
-- **MCP** — Connect to any Model Context Protocol server
-- **Plugin marketplace** — Install third-party plugins
-
-### 📊 Analytics & monitoring
-- **Cost tracker** — Track every API call's token usage and cost (USD) with per-model pricing
-- **Audit log** — Append-only security trail of every action (who/what/when/allowed/result)
-- **Activity heatmap** — GitHub-style 90-day activity grid with streak tracking
-- **Scheduled tasks** — Cron/interval/one-time recurring tasks with UI
-- **Smart suggestions** — Predicts your next action based on patterns
-- **Prompt templates** — 8 built-in templates + custom templates with variables
-
-### 🛡️ Security & reliability
-- **Full autonomy mode** — Agent can execute destructive actions (configurable)
-- **Confirmation mode** — Require Telegram confirmation for destructive actions (planned)
-- **Protected paths** — ~/.ssh, ~/.aws, system files never touched
-- **Safe delete** — Trash by default
-- **Blocked actions** — format disk, rm -rf /, etc. always refused
-- **Backup & restore** — Full backup of all agent data (memory, skills, templates, tasks, costs, audit)
-
-## Configuration
-
-Edit `config/config.yaml` to customize:
-
-```yaml
-agent:
-  use_react_loop: true        # ReAct loop (recommended) or single-shot planner
-  language: auto              # auto | fr | en
-
-zai:
-  backend: rest               # rest | sdk (z.ai coding plan SDK)
-  models:
-    planner: glm-4.6          # Switch to glm-5.1 when ready
-    vision: glm-4v
-    executor: glm-4.5
-
-llm_provider:
-  primary: zai                # Primary LLM provider
-  fallbacks: [openai, anthropic, mistral]  # Fallback chain
+```bash
+python main.py --cli            # Interactive CLI mode
+python main.py --task "..."     # Run a single task
+python main.py --check          # Configuration check
 ```
 
-### Environment variables (.env)
+## ⚙️ Configuration
+
+### Environment Variables (.env)
 
 ```bash
 # Required
-ZAI_API_KEY=your-z.ai-key
+ZAI_API_KEY=your-z.ai-key              # https://z.ai/
 
-# Telegram (for remote control)
-TELEGRAM_BOT_TOKEN=your-bot-token
+# Telegram (recommended)
+TELEGRAM_BOT_TOKEN=your-bot-token      # @BotFather
 
 # Email (optional)
 EMAIL_USER=you@gmail.com
-EMAIL_APP_PASSWORD=your-app-password
+EMAIL_APP_PASSWORD=your-app-password   # https://myaccount.google.com/apppasswords
 
 # Multi-LLM providers (optional — add any you have)
 OPENAI_API_KEY=sk-...
@@ -131,9 +137,27 @@ FIREWORKS_API_KEY=...
 ZDA_USE_SDK=true
 ```
 
-## Dashboard
+### config.yaml highlights
 
-The dashboard is a Next.js 16 app with a cinematic command-center UI:
+```yaml
+agent:
+  use_react_loop: true        # ReAct loop (recommended) or single-shot planner
+  language: auto              # auto | fr | en
+
+zai:
+  models:
+    planner: glm-4.6          # Switch to glm-5.1 when ready
+    vision: glm-4v
+    executor: glm-4.5
+
+llm_provider:
+  primary: zai                # Primary LLM provider
+  fallbacks: [openai, anthropic, mistral]  # Fallback chain
+```
+
+## 🖥️ Dashboard
+
+Cinematic command-center UI built with Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui, and Framer Motion.
 
 ```bash
 cd dashboard
@@ -143,26 +167,30 @@ bun run dev
 
 Open http://localhost:3000
 
-Features:
-- **State Orb** — breathing/pulsing centerpiece that changes color with agent state
-- **Thinking Stream** — live ReAct trace with timeline and typewriter cursor
-- **Module Grid** — 14 module tiles with per-module colors and hover glow
-- **Command Palette** — Cmd+K to submit tasks
-- **Activity Heatmap** — 90-day GitHub-style grid
-- **Cost Tracker** — total cost, API calls, per-model breakdown
-- **Audit Log** — live security trail
-- **Scheduled Tasks** — CRUD for recurring tasks
-- **Knowledge Base** — semantic search
-- **LLM Provider Switcher** — switch primary provider, test connections
-- **Prompt Templates** — browse and use templates
-- **Backup Panel** — create and restore backups
-- **Bilingual EN/FR** — toggle in header
+### Dashboard features
 
-## Architecture
+| Feature | Description |
+|---------|-------------|
+| **State Orb** | Breathing/pulsing centerpiece that changes color with agent state |
+| **Thinking Stream** | Live ReAct trace with timeline and typewriter cursor |
+| **Module Grid** | 14 module tiles with per-module colors and hover glow |
+| **Command Palette** | Cmd+K to submit tasks |
+| **Activity Heatmap** | 90-day GitHub-style grid with streak counter |
+| **Cost Tracker** | Total cost, API calls, per-model breakdown |
+| **Audit Log** | Live security trail with blocked-only filter |
+| **Scheduled Tasks** | CRUD for recurring tasks |
+| **Knowledge Base** | Semantic search with score badges |
+| **LLM Provider Switcher** | Switch primary, test connections |
+| **Prompt Templates** | Browse and use templates |
+| **Backup Panel** | Create and restore backups |
+| **Smart Suggestions** | Predicted next actions |
+| **Bilingual EN/FR** | Toggle in header |
+
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              Telegram / Dashboard / CLI / Webhooks           │
+│         Telegram / Dashboard / CLI / Webhooks                │
 └────────────────────────┬────────────────────────────────────┘
                           │ tasks (natural language)
                           ▼
@@ -190,36 +218,90 @@ Features:
 │  │ Cost      │  │ Audit     │  │ Activity  │                │
 │  │ Tracker   │  │ Log       │  │ Tracker   │                │
 │  └───────────┘  └───────────┘  └───────────┘                │
-│  ┌───────────┐  ┌───────────┐  ┌───────────┐                │
-│  │ Scheduled │  │ Prompt    │  │ Backup    │                │
-│  │ Tasks     │  │ Templates │  │ Manager   │                │
-│  └───────────┘  └───────────┘  └───────────┘                │
-│  ┌───────────┐                                                │
-│  │ Smart     │                                                │
-│  │ Suggestions│                                               │
-│  └───────────┘                                                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Stats
+## 📊 Stats
 
 | Metric | Value |
 |--------|-------|
-| Total actions | 88 |
-| Modules | 16 |
-| Core components | 26 |
-| LLM providers | 10 |
-| Dashboard panels | 22 |
-| Languages | EN + FR |
-| API endpoints | 50+ |
+| Total actions | **88** |
+| Modules | **16** |
+| Core components | **26** |
+| LLM providers | **10** |
+| Dashboard panels | **22** |
+| Languages | **EN + FR** |
+| API endpoints | **50+** |
 
-## License
+## ⚖️ Comparison with Competitors
+
+| Feature | Claude Code | OpenHands | Cursor | Hermes | **Z.AGENT** |
+|---------|:-----------:|:---------:|:------:|:------:|:-----------:|
+| Multi-LLM (10 providers) | — | — | — | — | ✅ |
+| ReAct loop | ✅ | ✅ | — | — | ✅ |
+| Vector memory | — | — | — | — | ✅ |
+| Auto skill creator | — | — | — | — | ✅ |
+| Code interpreter | ✅ | ✅ | — | — | ✅ |
+| Web search | — | — | — | — | ✅ |
+| Multi-agent | — | ✅ | — | — | ✅ |
+| Voice control | — | — | — | — | ✅ |
+| Webhooks | — | — | — | — | ✅ |
+| File watcher | — | — | — | — | ✅ |
+| MCP | — | — | — | — | ✅ |
+| Plugin marketplace | — | — | — | — | ✅ |
+| Cost tracker | — | — | — | — | ✅ |
+| Audit log | — | — | — | — | ✅ |
+| Activity heatmap | — | — | — | — | ✅ |
+| Scheduled tasks | — | — | — | — | ✅ |
+| RAG knowledge base | — | — | ✅ | — | ✅ |
+| 100% Windows control | — | — | — | — | ✅ |
+| Telegram remote | — | — | — | — | ✅ |
+| Bilingual EN/FR | — | — | — | — | ✅ |
+| Cinematic UI | Terminal | Basic | IDE | Basic | ✅ |
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. **Fork** the repo
+2. **Clone** your fork: `git clone https://github.com/your-username/z-agent-desktop.git`
+3. **Create a branch**: `git checkout -b feature/amazing-feature`
+4. **Commit**: `git commit -m 'Add amazing feature'`
+5. **Push**: `git push origin feature/amazing-feature`
+6. **Open a Pull Request`
+
+### Areas for contribution
+
+- 🌍 **Translations** — Add more languages (ES, DE, PT, IT, ZH, JA)
+- 🔌 **Plugins** — Create new plugins (Spotify, Notion, Docker, etc.)
+- 🌐 **MCP servers** — Add curated MCP server configurations
+- 🧪 **Tests** — Add integration tests with mock LLM providers
+- 📚 **Docs** — Improve documentation and examples
+- 🐛 **Bugs** — Fix issues from the [issue tracker](https://github.com/AFKmoney/z-agent-desktop/issues)
+
+See [open issues](https://github.com/AFKmoney/z-agent-desktop/issues) for ideas — look for the `good first issue` label if you're new.
+
+## 🔗 Links
+
+| Resource | URL |
+|----------|-----|
+| **Repository** | https://github.com/AFKmoney/z-agent-desktop |
+| **Documentation** | https://afkmoney.github.io/z-agent-desktop/ |
+| **PDF Manual** | https://afkmoney.github.io/z-agent-desktop/Z-AGENT-Documentation.pdf |
+| **Discussions** | https://github.com/AFKmoney/z-agent-desktop/discussions |
+| **Issues** | https://github.com/AFKmoney/z-agent-desktop/issues |
+| **Actions CI** | https://github.com/AFKmoney/z-agent-desktop/actions |
+
+## 📄 License
 
 MIT — see [LICENSE](LICENSE)
 
-## Links
+---
 
-- **Repo**: https://github.com/AFKmoney/z-agent-desktop
-- **Docs**: https://afkmoney.github.io/z-agent-desktop/
-- **Discussions**: https://github.com/AFKmoney/z-agent-desktop/discussions
-- **Issues**: https://github.com/AFKmoney/z-agent-desktop/issues
+<div align="center">
+
+**Z.AGENT v4.0** — Powered by 10 LLM providers · 88 actions · 16 modules · 26 core components
+
+Made with 🤖 by [AFKmoney](https://github.com/AFKmoney)
+
+</div>
