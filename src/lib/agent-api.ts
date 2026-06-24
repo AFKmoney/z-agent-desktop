@@ -255,4 +255,34 @@ export const agentApi = {
     agentFetch<Record<string, unknown>>(`/api/env/${key}`, { method: "DELETE" }),
   envTest: (key: string) =>
     agentFetch<Record<string, unknown>>(`/api/env/test/${key}`, { method: "POST" }),
+
+  // Chat History
+  chatList: () =>
+    agentFetch<{ conversations: Array<Record<string, unknown>> }>("/api/chat/conversations"),
+  chatCreate: (data: { title?: string; agent_id?: string }) =>
+    agentFetch<Record<string, unknown>>("/api/chat/conversations", { method: "POST", body: JSON.stringify(data) }),
+  chatGet: (convId: string) =>
+    agentFetch<Record<string, unknown>>(`/api/chat/conversations/${convId}`),
+  chatDelete: (convId: string) =>
+    agentFetch<Record<string, unknown>>(`/api/chat/conversations/${convId}`, { method: "DELETE" }),
+  chatUpdate: (convId: string, data: { title?: string; pinned?: boolean; archived?: boolean }) =>
+    agentFetch<Record<string, unknown>>(`/api/chat/conversations/${convId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  chatSend: (convId: string, message: string) =>
+    agentFetch<{ success: boolean; response: string; metadata?: Record<string, unknown> }>(`/api/chat/conversations/${convId}/send`, { method: "POST", body: JSON.stringify({ message }) }),
+  chatSearch: (q: string) =>
+    agentFetch<{ results: Array<Record<string, unknown>> }>("/api/chat/search", { params: { q } }),
+  chatStats: () => agentFetch<Record<string, unknown>>("/api/chat/stats"),
+
+  // Custom Agents
+  agentsList: () =>
+    agentFetch<{ agents: Array<Record<string, unknown>> }>("/api/agents"),
+  agentsCreate: (data: Record<string, unknown>) =>
+    agentFetch<Record<string, unknown>>("/api/agents", { method: "POST", body: JSON.stringify(data) }),
+  agentsGet: (agentId: string) =>
+    agentFetch<Record<string, unknown>>(`/api/agents/${agentId}`),
+  agentsUpdate: (agentId: string, data: Record<string, unknown>) =>
+    agentFetch<Record<string, unknown>>(`/api/agents/${agentId}`, { method: "PATCH", body: JSON.stringify(data) }),
+  agentsDelete: (agentId: string) =>
+    agentFetch<Record<string, unknown>>(`/api/agents/${agentId}`, { method: "DELETE" }),
+  agentsStats: () => agentFetch<Record<string, unknown>>("/api/agents/stats"),
 };

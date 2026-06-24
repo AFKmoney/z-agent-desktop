@@ -866,3 +866,296 @@ async def env_test(key: str):
     if mgr is None:
         raise HTTPException(500, "Not initialized")
     return mgr.test_value(key)
+
+
+# ============ Chat History ============
+
+class ChatCreate(BaseModel):
+    title: str = ""
+    agent_id: Optional[str] = None
+
+class ChatMessage(BaseModel):
+    role: str  # user | assistant | system
+    content: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@app.get("/api/chat/conversations")
+async def chat_list_conversations(include_archived: bool = False, limit: int = 50):
+    """List chat conversations."""
+    from core.chat_history import get_chat_history
+    ch = get_chat_history()
+    if ch is None:
+        return {"conversations": []}
+    return {"conversations": ch.list_conversations(include_archived, limit)}
+
+
+@app.post("/api/chat/conversations")
+async def chat_create_conversation(req: ChatCreate):
+    """Create a new conversation."""
+    from core.chat_history import get_chat_history
+    ch = get_chat_history()
+    if ch is None:
+        raise HTTPException(500, "Not initialized")
+    return ch.create_conversation(title=req.title, agent_id=req.agent_id)
+
+
+@app.get("/api/chat/conversations/{conv_id}")
+async def chat_get_conversation(conv_id: str):
+    """Get a conversation with all messages."""
+    from core.chat_history import get_chat_history
+    ch = get_chat_history()
+    if ch is None:
+        raise HTTPException(500, "Not initialized")
+    result = ch.get_conversation(conv_id, include_messages=True)
+    if result is None:
+        raise HTTPException(404, "Conversation not found")
+    return result
+
+
+@app.delete("/api/chat/conversations/{conv_id}")
+async def chat_delete_conversation(conv_id: str):
+    """Delete a conversation."""
+    from core.chat_history import get_chat_history
+    ch = get_chat_history()
+    if ch is None:
+        raise HTTPException(500, "Not initialized")
+    return ch.delete_conversation(conv_id)
+
+
+@app.post("/api/chat/conversations/{conv_id}/messages")
+async def chat_add_message(conv_id: str, req: ChatMessage):
+    """Add a message to a conversation."""
+    from core.chat_history import get_chat_history
+    ch = get_chat_history()
+    if ch is None:
+        raise HTTPException(500, "Not initialized")
+    return ch.add_message(conv_id, req.role, req.content, req.metadata)
+
+
+@app.patch("/api/chat/conversations/{conv_id}")
+async def chat_update_conversation(
+    conv_id: str,
+    title: Optional[str] = Body(default=None),
+    pinned: Optional[bool] = Body(default=None),
+    archived: Optional[bool] = Body(default=None),
+):
+    """Update conversation properties."""
+    from core.chat_history import get_chat_history
+    ch = get_chat_history()
+    if ch is None:
+        raise HTTPException(500, "Not initialized")
+    if title is not None:
+        return ch.rename_conversation(conv_id, title)
+    if pinned is not None:
+        return ch.pin_conversation(conv_id, pinned)
+    if archived is not None:
+        return ch.archive_conversation(conv_id, archived)
+    return {"success": False, "error": "No update specified"}
+
+
+@app.get("/api/chat/search")
+async def chat_search(q: str, limit: int = 10):
+    """Search conversations by title."""
+    from core.chat_history import get_chat_history
+    ch = get_chat_history()
+    if ch is None:
+        return {"results": []}
+    return {"results": ch.search_conversations(q, limit)}
+
+
+@app.get("/api/chat/stats")
+async def chat_stats():
+    """Get chat history statistics."""
+    from core.chat_history import get_chat_history
+    ch = get_chat_history()
+    if ch is None:
+        return {}
+    return ch.get_stats()
+
+
+# ============ Custom Agents ============
+
+class AgentCreate(BaseModel):
+    name: str
+    description: str = ""
+    system_prompt: str = ""
+    provider: str = "zai"
+    model: str = ""
+    temperature: float = 0.3
+    max_tokens: int = 4096
+    allowed_actions: List[str] = []
+    blocked_actions: List[str] = []
+    memory_mode: str = "conversation"
+    autonomy_mode: str = "full"
+    color: Optional[str] = None
+    emoji: str = "🤖"
+
+class AgentUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    system_prompt: Optional[str] = None
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    allowed_actions: Optional[List[str]] = None
+    blocked_actions: Optional[List[str]] = None
+    memory_mode: Optional[str] = None
+    autonomy_mode: Optional[str] = None
+    color: Optional[str] = None
+    emoji: Optional[str] = None
+
+
+@app.get("/api/agents")
+async def agents_list():
+    """List all custom agents."""
+    from core.custom_agents import get_custom_agents
+    mgr = get_custom_agents()
+    if mgr is None:
+        return {"agents": []}
+    return {"agents": mgr.list()}
+
+
+@app.post("/api/agents")
+async def agents_create(req: AgentCreate):
+    """Create a custom agent."""
+    from core.custom_agents import get_custom_agents
+    mgr = get_custom_agents()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.create(
+        name=req.name, description=req.description, system_prompt=req.system_prompt,
+        provider=req.provider, model=req.model, temperature=req.temperature,
+        max_tokens=req.max_tokens, allowed_actions=req.allowed_actions,
+        blocked_actions=req.blocked_actions, memory_mode=req.memory_mode,
+        autonomy_mode=req.autonomy_mode, color=req.color, emoji=req.emoji,
+    )
+
+
+@app.get("/api/agents/{agent_id}")
+async def agents_get(agent_id: str):
+    """Get a custom agent."""
+    from core.custom_agents import get_custom_agents
+    mgr = get_custom_agents()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    result = mgr.get(agent_id)
+    if result is None:
+        raise HTTPException(404, "Agent not found")
+    return result
+
+
+@app.patch("/api/agents/{agent_id}")
+async def agents_update(agent_id: str, req: AgentUpdate):
+    """Update a custom agent."""
+    from core.custom_agents import get_custom_agents
+    mgr = get_custom_agents()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    return mgr.update(agent_id, **updates)
+
+
+@app.delete("/api/agents/{agent_id}")
+async def agents_delete(agent_id: str):
+    """Delete a custom agent."""
+    from core.custom_agents import get_custom_agents
+    mgr = get_custom_agents()
+    if mgr is None:
+        raise HTTPException(500, "Not initialized")
+    return mgr.delete(agent_id)
+
+
+@app.get("/api/agents/stats")
+async def agents_stats():
+    """Get custom agent statistics."""
+    from core.custom_agents import get_custom_agents
+    mgr = get_custom_agents()
+    if mgr is None:
+        return {}
+    return mgr.get_stats()
+
+
+@app.post("/api/chat/conversations/{conv_id}/send")
+async def chat_send_message(conv_id: str, message: str = Body(..., embed=True)):
+    """Send a user message and get an agent response.
+
+    This is the main chat endpoint: adds the user message to the conversation,
+    then generates an agent response using the conversation's custom agent
+    (or the default agent if none is set).
+    """
+    from core.chat_history import get_chat_history
+    ch = get_chat_history()
+    if ch is None:
+        raise HTTPException(500, "Chat history not initialized")
+
+    # Get conversation
+    conv = ch.get_conversation(conv_id, include_messages=True)
+    if conv is None:
+        raise HTTPException(404, "Conversation not found")
+
+    # Add user message
+    ch.add_message(conv_id, "user", message)
+
+    # Get the custom agent for this conversation
+    agent_id = conv.get("agent_id")
+    system_prompt = ""
+    if agent_id:
+        from core.custom_agents import get_custom_agents
+        mgr = get_custom_agents()
+        if mgr:
+            system_prompt = mgr.get_system_prompt(agent_id)
+            mgr.record_use(agent_id)
+
+    # Build messages for the LLM
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    # Include conversation history (last 20 messages)
+    for msg in conv.get("messages", [])[-20:]:
+        messages.append({"role": msg["role"], "content": msg["content"]})
+    # Add the new user message
+    messages.append({"role": "user", "content": message})
+
+    # Call the LLM
+    try:
+        from core.llm_provider import get_llm_provider
+        provider = get_llm_provider()
+        if provider is None:
+            # Fallback to z.ai client
+            from core.zai_client import get_zai
+            zai = get_zai()
+            if zai is None:
+                ch.add_message(conv_id, "assistant", "Error: No LLM provider available")
+                return {"success": False, "error": "No LLM provider"}
+            result = zai.chat(messages, role="planner")
+        else:
+            result = provider.chat(messages, role="planner")
+
+        response_text = result.get("content", "Error: No response")
+
+        # Add assistant response to conversation
+        ch.add_message(conv_id, "assistant", response_text, metadata={
+            "model": result.get("model"),
+            "provider": result.get("provider"),
+            "tokens_in": result.get("tokens_in", 0),
+            "tokens_out": result.get("tokens_out", 0),
+            "elapsed_s": result.get("elapsed_s", 0),
+        })
+
+        return {
+            "success": True,
+            "response": response_text,
+            "metadata": {
+                "model": result.get("model"),
+                "provider": result.get("provider"),
+                "tokens_in": result.get("tokens_in", 0),
+                "tokens_out": result.get("tokens_out", 0),
+                "elapsed_s": result.get("elapsed_s", 0),
+            },
+        }
+    except Exception as e:
+        error_msg = f"Error: {e}"
+        ch.add_message(conv_id, "assistant", error_msg)
+        return {"success": False, "error": str(e), "response": error_msg}

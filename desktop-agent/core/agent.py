@@ -173,6 +173,20 @@ class Agent:
             init_env_manager()
         except Exception as e:
             log.warning(f"Env manager init failed: {e}")
+
+        # Init chat history
+        try:
+            from core.chat_history import init_chat_history
+            init_chat_history()
+        except Exception as e:
+            log.warning(f"Chat history init failed: {e}")
+
+        # Init custom agents
+        try:
+            from core.custom_agents import init_custom_agents
+            init_custom_agents()
+        except Exception as e:
+            log.warning(f"Custom agents init failed: {e}")
         
         # Register module handlers
         # Register modules — gracefully skip those whose deps are missing

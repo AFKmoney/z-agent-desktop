@@ -8,7 +8,7 @@ import {
   ChevronRight, Circle, CheckCircle2, XCircle,
   Camera, FileText, Mail, Calendar, Globe, Monitor, MonitorSmartphone,
   Lightbulb, Eye, Languages, Sparkles, Search, Code, Network,
-  Mic, Plug, Radio, MessageSquare, Command, Volume2, Settings,
+  Mic, Plug, Radio, MessageSquare, Command, Volume2, Settings, MessageCircle, Users,
 } from "lucide-react";
 import { useAgent } from "@/hooks/use-agent";
 import { agentApi, type TaskRecord } from "@/lib/agent-api";
@@ -29,6 +29,8 @@ import {
   LLMProviderSwitcher, SmartSuggestionsPanel, PromptTemplatesPanel, BackupPanel,
 } from "@/components/agent/power-panels";
 import { SettingsModal } from "@/components/agent/settings-modal";
+import { ChatInterface } from "@/components/agent/chat-interface";
+import { AgentCreatorModal } from "@/components/agent/agent-creator";
 
 const MODULES_LIST = ["screen", "files", "email", "calendar", "browser", "system", "windows", "code", "web", "voice", "plugin", "mcp", "vision", "slack"];
 
@@ -68,6 +70,8 @@ export default function Dashboard() {
   const [screenshots, setScreenshots] = useState<Array<{ name: string; size: number; modified: number }>>([]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [agentsOpen, setAgentsOpen] = useState(false);
   const [activeView, setActiveView] = useState<"stream" | "tasks" | "logs" | "screens">("stream");
   const [liveTrace, setLiveTrace] = useState<Array<Record<string, unknown>>>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -190,6 +194,14 @@ export default function Dashboard() {
               <Command className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{lang === "fr" ? "Commande" : "Command"}</span>
               <kbd className="text-[9px] font-mono bg-muted/60 px-1 py-0.5 rounded">⌘K</kbd>
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setChatOpen(true)} className="gap-1.5 text-xs px-2" title={lang === "fr" ? "Chat" : "Chat"}>
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === "fr" ? "Chat" : "Chat"}</span>
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setAgentsOpen(true)} className="gap-1.5 text-xs px-2" title={lang === "fr" ? "Agents" : "Agents"}>
+              <Users className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{lang === "fr" ? "Agents" : "Agents"}</span>
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setSettingsOpen(true)} className="gap-1.5 text-xs px-2" title={lang === "fr" ? "Paramètres" : "Settings"}>
               <Settings className="w-3.5 h-3.5" />
@@ -606,6 +618,8 @@ export default function Dashboard() {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onSubmit={submitTask} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} lang={lang} />
+      <ChatInterface open={chatOpen} onClose={() => setChatOpen(false)} lang={lang} />
+      <AgentCreatorModal open={agentsOpen} onClose={() => setAgentsOpen(false)} lang={lang} />
     </div>
   );
 }
